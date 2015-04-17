@@ -2,6 +2,8 @@ import fresh_tomatoes
 import media
 
 
+# Create the metadata for all of the movies
+
 inception = media.Movie(
     "Inception",
     "Your mind is the scene of crime",
@@ -32,9 +34,9 @@ kingsmen = media.Movie(
 
 awkward_adventure = media.Movie(
     "My Awkward Sexual Adventure",
-    """ 
-    To win back his ex-girlfriend, a conservative accountant enlists the 
-    help of an exotic dancer to guide him on a quest for sexual experience...""",
+    """To win back his ex-girlfriend, a conservative accountant enlists the 
+    help of an exotic dancer to guide him on a quest for sexual experience...
+    """,
     "http://ia.media-imdb.com/images/M/MV5BMjI5MTYzOTMyNF5BMl5BanBnXkFtZTcwNTgwNDYzOQ@@._V1__SX1656_SY855_.jpg",
     "https://www.youtube.com/watch?v=2Tw-FF4-Fxk")
 
