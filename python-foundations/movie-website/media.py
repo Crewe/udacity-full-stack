@@ -3,9 +3,9 @@ import webbrowser
 
 class Movie():
 
-    """The Movie class. 
-    Has general details about movies such as it's title short synopsis, 
-    it's poster image, and trailer video URL to name a few. 
+    """The Movie class.
+    Has general details about movies such as it's title short synopsis,
+    it's poster image, and trailer video URL to name a few.
     """
 
     # A list of ratings that can be applied to the movie
@@ -27,11 +27,11 @@ class Movie():
 
 
     def rating_image_location(self):
-        """Based on the rating of the movie give the location of the 
+        """Based on the rating of the movie give the location of the
            representative image file on the server.
         """
-        if (self.rating in self.VALID_RATINGS):
-            return './img/'+ self.rating +'-rating.PNG'
+        if self.rating in self.VALID_RATINGS:
+            return './img/' + self.rating + '-rating.PNG'
         else:
             return './img/nr-rating.PNG'
 
@@ -40,7 +40,7 @@ class Movie():
         """Checks that the provided rating is indeed known and returns it,
         otherwise it is not rated, or NR.
         """
-        if (self.rating in self.VALID_RATINGS):
+        if self.rating in self.VALID_RATINGS:
             return self.rating
         else:
             return "NR"
