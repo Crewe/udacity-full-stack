@@ -42,3 +42,9 @@ Network Trash Folder
 Temporary Items
 .apdisk
 *.pyc
+
+# Directories
+#---------------
+/python-foundations
+/fullstack-vm
+.vagrant

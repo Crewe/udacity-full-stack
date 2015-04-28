@@ -93,6 +93,7 @@ def playerStandings():
     db.close()
     return ranking
 
+
 def reportMatch(winner, loser):
     """Records the outcome of a single match between two players.
 
@@ -147,6 +148,7 @@ def swissPairings():
     else:
         db.close()
         return None
+
 
 def addEventPlayers():
     players = [('Matty Cowling'), 
