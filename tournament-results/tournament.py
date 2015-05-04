@@ -4,23 +4,72 @@
 #
 
 import psycopg2
-import random
-import math
 
-BYE = -1
-rand = random
 
 def connect():
     """Connect to the PostgreSQL database.  Returns a database connection."""
     return psycopg2.connect("dbname=tournament")
 
 
+def executeQuery(query, connection):
+    """Executes a query on the given connection.  Returns nothing.
+    Args: 
+      query: The query string to be executed.
+      connection: The database connection object.
+    """
+    c = connection.cursor()
+    c.execute(query)
+    connection.commit()
+    connection.close()
+
+
+def executeResultQuery(query, connection):
+    """Executes a query on the provided connection. 
+    Returns results of the query.
+    Args: 
+      query: The query string to be executed.
+      connection: The database connection object.
+    """
+    c = connection.cursor()
+    c.execute(query)
+    result = c.fetchall()
+    connection.commit()
+    connection.close()
+    return result
+
+
 def deleteMatches():
     """Remove all the match records from the database."""
     q = "DELETE FROM matches;"
+    executeQuery(q, connect())
+
+
+def deleteEvent(event_id):
+    """
+    Remove a particular event from the database. Along with associated players
+    and matches.
+    """
+    q = "DELETE FROM events WHERE event_id = %s;"
     db = connect()
     cur = db.cursor()
-    cur.execute(q)
+    cur.execute(q, [event_id,])
+    db.commit()
+    db.close()
+
+
+def deleteEvents():
+    """Remove all events from the database with associated players and matches.
+    """
+    q = "DELETE FROM events;"
+    executeQuery(q, connect())
+
+
+def deletePlayersFromEvent(event_id):
+    """Remove all players form an event in the database."""
+    q = "DELETE FROM players WHERE event_id = %s;"
+    db = connect()
+    cur = db.cursor()
+    cur.execute(q, [event_id,])
     db.commit()
     db.close()
 
@@ -28,46 +77,59 @@ def deleteMatches():
 def deletePlayers():
     """Remove all the player records from the database."""
     q = "DELETE FROM players;"
-    db = connect()
-    cur = db.cursor()
-    cur.execute(q)
-    db.commit()
-    db.close()
+    executeQuery(q, connect())
+
+
+def countEvents():
+    """Returns the number of events available for registration."""
+    q = "SELECT COUNT(*) FROM events;"
+    result = executeResultQuery(q, connect())
+    count = [int(row[0]) for row in result]
+    return count[0]    
 
 
 def countPlayers():
     """Returns the number of players currently registered."""
     q = "SELECT COUNT(*) FROM players;"
-    db = connect()
-    cur = db.cursor()
-    cur.execute(q)
-    count = [int(row[0]) for row in cur.fetchall()]
-    db.close()
+    result = executeResultQuery(q, connect())
+    count = [int(row[0]) for row in result]
     return count[0]
 
 
-def registerPlayer(name):
+def createEvent(event_name):
+    """Create a new event in the database with the given name."""
+    q = "INSERT INTO events (event_name) VALUES (%s) RETURNING event_id;"
+    db = connect()
+    cur = db.cursor()
+    cur.execute(q, [event_name,])
+    eid = [int(row[0]) for row in cur.fetchall()]
+    db.commit()
+    db.close()
+    return eid[0]
+
+
+def registerPlayer(event_id, name):
     """Adds a player to the tournament database.
   
     The database assigns a unique serial id number for the player.  (This
     should be handled by your SQL database schema, not in your Python code.)
   
     Args:
+      event_id: The id of the event the player is registering for.
       name: the player's full name (need not be unique).
     """
-    q = ["INSERT INTO players (player_name) VALUES (%s) RETURNING player_id;",
-         "INSERT INTO player_stats (player_id) VALUES (%s);"]
+    q1 = """
+    INSERT INTO players (event_id, player_name) 
+    VALUES (%s, %s) RETURNING player_id;
+    """
     db = connect()
     cur = db.cursor()
-    cur.execute(q[0], [name,])
-    player_id = [str(row[0]) for row in cur.fetchall()]
-    db.commit()
-    cur.execute(q[1], player_id)
+    cur.execute(q1, [event_id, name,])
     db.commit()
     db.close()
 
 
-def playerStandings():
+def playerStandings(event_id):
     """Returns a list of the players and their win records, sorted by wins.
 
     The first entry in the list should be the player in first place, or a player
@@ -80,21 +142,25 @@ def playerStandings():
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-    q = "SELECT player_id, player_name, wins, matches FROM player_standings;"
+    q = """
+    SELECT player_id, player_name, wins, matches FROM player_standings
+    WHERE event_id = %s;
+    """
     db = connect()
     cur = db.cursor()
-    cur.execute(q)
+    cur.execute(q, [event_id,])
+    result = cur.fetchall()
     ranking = [( 
         int(row[0]),
         str(row[1]),
         int(row[2]),
         int(row[3]),
-    ) for row in cur.fetchall()]
+    ) for row in result]
     db.close()
     return ranking
 
 
-def reportMatch(winner, loser):
+def reportMatch(event_id, winner, loser):
     """Records the outcome of a single match between two players.
 
     Args:
@@ -102,19 +168,15 @@ def reportMatch(winner, loser):
       loser:  the id number of the player who lost
     """
     q = """
-        INSERT INTO matches (player_id_A, player_id_B, winner_id)
-        VALUES (%s, %s, %s);
+        INSERT INTO matches (event_id, player_id_A, player_id_B, tie)
+        VALUES (%s, %s, %s, %s);
         """
-    win_q = "UPDATE player_stats SET wins = wins + 1 WHERE player_id = %s;"
-    loss_q = "UPDATE player_stats SET losses = losses + 1 WHERE player_id = %s;"
     db = connect()
     cur = db.cursor()
-    cur.execute(q, [winner, loser, winner,])
-    cur.execute(win_q, [winner,])
-    cur.execute(loss_q, [loser,])
+    cur.execute(q, [event_id, winner, loser, False,])
     db.commit()
     db.close()
-     
+
  
 def swissPairings():
     """Returns a list of pairs of players for the next round of a match.
@@ -148,56 +210,3 @@ def swissPairings():
     else:
         db.close()
         return None
-
-
-def addEventPlayers():
-    players = [('Matty Cowling'), 
-                ('Ardley Marko'), 
-                ('Blaxton Wethington'), 
-                ('Kaveri Ferebee'),
-                ('Kristen Dorsett'),
-                ('Horatia Storey'), 
-                ('Nanon Learned'),
-                ('Mell Krantz'), 
-                ('Cerise Swanner'), 
-                ('Morgan Kohler'), 
-                ('Teofilia Henkel'),
-                ('Keelin Feller'),
-                ('Lucia Aragon'), 
-                ('Jed Nevins'), 
-                ('Nimai Samuels'), 
-                ('Asta Dunfee')]
-    for p in players:
-        registerPlayer(p)
-    
-
-def runRounds():
-    """
-    Perfarem the first round of matches. If theere's an odd number of players
-    then one player will be given a Bye at random.
-    """
-    player_count = countPlayers()
-    rounds = 0
-    if player_count % 2 == 0 and player_count != 0:
-        rounds = int(math.log(player_count, 2))
-    elif player_count % 2 == 1 and player_count > 1:
-        rounds = int(math.log(player_count + 1, 2))
-        
-    beginTournament(rounds, False)
-
-
-def beginTournament(rounds, has_byes):
-    for i in range(rounds):
-        matchups = swissPairings()
-        if has_byes:
-            # The last registered person will always have the first bye.
-            first_bye = matchups[len(matchups) - 1][0]
-            if first_bye == match[0] and i == 0:
-                    # First round bye
-                    reportMatch(first_bye, BYE)
-        else:
-            for match in matchups:
-                # Randomly decide who is the winner. 0 = player A wins.
-                winner = int(rand.uniform(0, 2))
-                reportMatch(match[2 if winner else 0], 
-                            match[0 if winner else 2])

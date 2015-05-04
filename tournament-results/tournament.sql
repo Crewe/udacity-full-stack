@@ -15,55 +15,51 @@ CREATE DATABASE tournament;
 
 -- Drop all the tables if they exist (ORDER MATTERS!)
 DROP VIEW player_standings;
-DROP TABLE IF EXISTS player_stats;
+DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS matches;
 DROP TABLE IF EXISTS players;
 
+-- 
+CREATE TABLE events (
+	event_id SERIAL PRIMARY KEY,
+	event_name TEXT NOT NULL
+);
 
--- CREATE TABLE events (
---	event_id SERIAL PRIMARY KEY,
---	event_name TEXT NOT NULL,
---);
-
--- Create all the tables (ORDER MATTERS!)
+-- 
 CREATE TABLE players (
 	player_id SERIAL PRIMARY KEY,
---	event_id INTEGER NOT NULL,
-	player_name TEXT NOT NULL--,
---	FOREIGN KEY (event_id) REFERENCES events(event_id)
+	event_id INTEGER NOT NULL,
+	player_name TEXT NOT NULL,
+	FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE
 );
 
+-- TODO: Insure that both players are in the same event on INSERT
 CREATE TABLE matches (
 	match_id SERIAL PRIMARY KEY,
+	event_id INTEGER NOT NULL,
 	player_id_A INTEGER NOT NULL,
 	player_id_B INTEGER NOT NULL,
-	winner_id INTEGER DEFAULT 0,
+	tie BOOLEAN DEFAULT FALSE,
 	FOREIGN KEY (player_id_A) REFERENCES players(player_id),
-	FOREIGN KEY (player_id_B) REFERENCES players(player_id)
+	FOREIGN KEY (player_id_B) REFERENCES players(player_id),
+	FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE
 );
 
-CREATE TABLE player_stats (
-	player_id SERIAL PRIMARY KEY NOT NULL,
---	event_id INTEGER NOT NULL,
-	wins INTEGER DEFAULT 0 NOT NULL,
-	losses INTEGER DEFAULT 0 NOT NULL,
-	-- ties INTEGER DEFAULT 0 NOT NULL,
-	-- OMW NUMERIC(5,2) DEFAULT 0.0 
-	FOREIGN KEY (player_id) REFERENCES players(player_id) ON DELETE CASCADE
-	-- FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE
-);
 
--- Some handy views
 CREATE VIEW player_standings AS
-SELECT --row_number() OVER () AS ranking
-	p.player_id
-	, p.player_name
-	, s.wins
-	, (s.wins + s.losses) AS matches
---	, CASE WHEN s.wins + s.losses = 0 THEN 0
---	  ELSE (s.wins / (s.wins + s.losses)) * 100.00
---	  END
-FROM players p
-JOIN player_stats s ON p.player_id = s.player_id
-GROUP BY s.wins, s.losses, p.player_id, p.player_name
-ORDER BY SUM(s.wins) DESC, SUM(s.losses) ASC;
+SELECT t.event_id, t.player_id, t.player_name, t.wins, t.losses, t.matches 
+FROM (
+	SELECT e.event_id as event_id
+		, p.player_id AS player_id
+		, p.player_name AS player_name
+		, COUNT(mw.player_id_A) AS wins
+		, COUNT(ml.player_id_B) AS losses
+		, COUNT(mw.player_id_A) + COUNT(ml.player_id_B) AS matches
+	FROM players p
+	INNER JOIN events e ON e.event_id = p.event_id
+	LEFT JOIN matches mw ON mw.player_id_A = p.player_id
+	LEFT JOIN matches ml ON ml.player_id_B = p.player_id
+	GROUP BY e.event_id, p.player_id, p.player_name
+) AS t
+GROUP BY t.event_id, t.wins, t.losses, t.matches, t.player_id, t.player_name
+ORDER BY SUM(t.wins) DESC, SUM(t.losses) ASC;
