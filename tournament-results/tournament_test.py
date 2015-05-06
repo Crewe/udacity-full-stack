@@ -57,7 +57,7 @@ def testRegister():
     deletePlayers()
     eid = createEvent("Tyrannical Tennis Masters")
     registerPlayer(eid, "Chandra Nalaar")
-    c = countPlayers()
+    c = countPlayers(eid)
     if c != 1:
         raise ValueError(
             "After one player registers, countPlayers() should be 1.")
@@ -73,12 +73,12 @@ def testRegisterCountDelete():
     registerPlayer(eid, "Joe Malik")
     registerPlayer(eid, "Mao Tsu-hsi")
     registerPlayer(eid, "Atlanta Hope")
-    c = countPlayers()
+    c = countPlayers(eid)
     if c != 4:
         raise ValueError(
             "After registering four players, countPlayers should be 4.")
     deletePlayers()
-    c = countPlayers()
+    c = countPlayers(eid)
     if c != 0:
         raise ValueError("After deleting, countPlayers should return zero.")
     print "7. Players can be registered and deleted."
@@ -146,7 +146,7 @@ def testPairings():
     [id1, id2, id3, id4] = [row[0] for row in standings]
     reportMatch(eid, id1, id2)
     reportMatch(eid, id3, id4)
-    pairings = swissPairings()
+    pairings = swissPairings(eid)
     if len(pairings) != 2:
         raise ValueError(
             "For four players, swissPairings should return two pairs.")

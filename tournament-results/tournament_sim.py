@@ -1,12 +1,15 @@
-import tournament
+from tournament import *
 import random
 import math
+import time
 
 BYE = -1
+MIN_CONTESTANTS = 2
+MAX_CONTESTANTS = 16
+
 rand = random
 
-
-def addPlayers(event_id, contestants = 16):
+def addPlayers(event_id, contestants = MAX_CONTESTANTS):
     """
     Add up to 16 contestants to a tournament so that the simulation
     may be run with 2 to 16 players.
@@ -30,28 +33,30 @@ def addPlayers(event_id, contestants = 16):
                 ('Jed Nevins'), 
                 ('Nimai Samuels'), 
                 ('Asta Dunfee')]
-    for p in players:
-        registerPlayer(event_id, p)
+    if contestants > MAX_CONTESTANTS or contestants < MIN_CONTESTANTS:
+        contestants = 8
+    for i in range(contestants):
+        registerPlayer(event_id, players[i])
     
 
-def runRounds():
+def runRounds(event_id):
     """
-    Perfarem the first round of matches. If theere's an odd number of players
-    then one player will be given a Bye at random.
+    Perform the first round of matches. If theere's an odd number of players
+    then the last player registered given a Bye.
     """
-    player_count = countPlayers()
+    player_count = countPlayers(event_id)
     rounds = 0
     if player_count % 2 == 0 and player_count != 0:
         rounds = int(math.log(player_count, 2))
     elif player_count % 2 == 1 and player_count > 1:
         rounds = int(math.log(player_count + 1, 2))
         
-    beginTournament(rounds, False)
+    beginTournament(rounds, event_id, bool(player_count % 2))
 
 
-def beginTournament(rounds, has_byes):
+def beginTournament(rounds, event_id, has_byes):
     for i in range(rounds):
-        matchups = swissPairings()
+        matchups = swissPairings(event_id)
         if has_byes:
             # The last registered person will always have the first bye.
             first_bye = matchups[len(matchups) - 1][0]
@@ -62,10 +67,21 @@ def beginTournament(rounds, has_byes):
             for match in matchups:
                 # Randomly decide who is the winner. 0 = player A wins.
                 winner = int(rand.uniform(0, 2))
-                reportMatch(match[2 if winner else 0], 
-                            match[0 if winner else 2])
+                if winner >= 2:
+                    winner = 1
+                reportMatch(event_id, 
+                            match[2 if winner else 0], 
+                            match[0 if winner else 2],)
 
-def setUpTornament():
+
+def runSim():
+    #deleteEvents()
     eid = createEvent("Immortal Melee")
     addPlayers(eid)
+    runRounds(eid)
 
+    eid = createEvent("Rue Rampage")
+    addPlayers(eid, 8)
+    runRounds(eid)
+
+runSim()

@@ -88,10 +88,19 @@ def countEvents():
     return count[0]    
 
 
-def countPlayers():
+def countPlayers(event_id = None):
     """Returns the number of players currently registered."""
-    q = "SELECT COUNT(*) FROM players;"
-    result = executeResultQuery(q, connect())
+    q1 = "SELECT COUNT(*) FROM players WHERE event_id = %s;"
+    q2 = "SELECT COUNT(*) FROM players;"
+    
+    if event_id == None:
+        result = executeResultQuery(q2, connect()) 
+    else:
+        db = connect()
+        cur = db.cursor()
+        cur.execute(q1, [event_id,])
+        result = cur.fetchall()
+        db.close()
     count = [int(row[0]) for row in result]
     return count[0]
 
@@ -178,7 +187,7 @@ def reportMatch(event_id, winner, loser):
     db.close()
 
  
-def swissPairings():
+def swissPairings(event_id):
     """Returns a list of pairs of players for the next round of a match.
   
     Assuming that there are an even number of players registered, each player
@@ -193,16 +202,15 @@ def swissPairings():
         id2: the second player's unique id
         name2: the second player's name
     """
-    count_q = "SELECT COUNT(*) FROM players;"
-    q = "SELECT player_id, player_name FROM player_standings;"
+    #count_q = "SELECT COUNT(*) FROM players;"
+    q = "SELECT player_id, player_name FROM player_standings WHERE event_id = %s;"
     db = connect()
     cur = db.cursor()
-    cur.execute(count_q)
-    num_of_players = [int(row) for row in cur.fetchone()]
-    if num_of_players[0] % 2 == 0 and num_of_players[0] != 0:
-        cur.execute(q)
+    pc = countPlayers(event_id) 
+    if pc % 2 == 0 and pc != 0:
+        cur.execute(q, [event_id,])
         matchups = []
-        for i in range(0, num_of_players[0] / 2):
+        for i in range(0, pc / 2):
             tpl = cur.fetchmany(2)
             matchups.append((tpl[0][0], tpl[0][1], tpl[1][0], tpl[1][1]))
         db.close()
