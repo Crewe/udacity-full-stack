@@ -29,9 +29,19 @@ class MenuItem(Base):
 	course = Column(String(250))
 	description = Column(String(250))
 	price = Column(String(8))
-	restuarant_id = Column(Integer, ForeignKey('restaurant.id'))
+	restaurant_id = Column(Integer, ForeignKey('restaurant.id'))
 	restaurant = relationship(Restaurant)
 
+	@property
+	def serialize(self):
+		#Returns the serialized object as JSON
+		return {
+			'id': self.id,
+			'name': self.name,
+			'course': self.course,
+			'description':  self.description,
+			'price': self.price,
+		}
 
 engine = create_engine('sqlite:///restaurantmenu.db')
 Base.metadata.create_all(engine)
