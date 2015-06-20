@@ -2,12 +2,16 @@ from tournament import *
 import random
 import math
 import time
+import os
+from report import TournamentReport
 
 BYE = -1
 MIN_CONTESTANTS = 2
 MAX_CONTESTANTS = 16
+REPORTING = True
 
 rand = random
+tr = TournamentReport()
 
 def addPlayers(event_id, contestants = MAX_CONTESTANTS):
     """
@@ -37,81 +41,122 @@ def addPlayers(event_id, contestants = MAX_CONTESTANTS):
         contestants = 8
     for i in range(contestants):
         registerPlayer(event_id, players[i])
-    
+        
+    if REPORTING:
+        tr.AddPlayerList(players[:contestants])
 
-def runRounds(event_id):
+
+def simTournament(event_id, report_on = True):
     """
-    Perform the first round of matches. If theere's an odd number of players
-    then the last player registered given a Bye.
+    Simulates a tournament from beginning to end based on the event id.
+    By default it will generate an HTML report of the tournament.
     """
+    REPORTING = report_on
     player_count = countPlayers(event_id)
     rounds = 0
+    has_byes = False
+
     if player_count % 2 == 0 and player_count != 0:
         rounds = int(math.log(player_count, 2))
     elif player_count % 2 == 1 and player_count > 1:
         rounds = int(math.log(player_count + 1, 2))
-        
-    beginTournament(rounds, event_id, bool(player_count % 2))
+        has_byes = True
 
-
-def beginTournament(rounds, event_id, has_byes):
     for i in range(rounds):
         matchups = swissPairings(event_id)
-        if has_byes:
-            bye_id = matchups[len(matchups) - 1][0]
-            new_bye_id = 0
-            bye = checkByes(event_id, bye_id)
 
-            # If so give the bye to the next last person who hasn't
-            matches = len(matchups - 1)
-            if bye:
+        if has_byes:
+            # If the event requires byes (odd number of players) then take 
+            # the last player and see if they have had a bye already. 
+            # If they haven't find the next player who hasn't and swap them 
+            # in the matchup list.
+            player = [matchups[len(matchups) - 1][0], 
+                      matchups[len(matchups) - 1][1]]
+            nxt_player = [0,'']
+
+            bye = CheckByes(event_id, player[0])
+            matches = len(matchups) - 2
+            if bye == True:
                 j = 0
                 while matches >= 0:
-                    new_bye_id = matchups[matches][0 if j % 2 == 1 else 2]
-                    if !checkByes(event_id, new_bye_id):
-                        # Swap the IDs
-                        matchups[matches][0 if j % 2 == 1 else 2] = bye_id
-                        matchups[len(matchups) - 1][0] = new_bye_id
+                    nxt_player[0] = matchups[matches][0 if j % 2 == 1 else 2]
+                    nxt_player[1] = matchups[matches][1 if j % 2 == 1 else 3]
+                    if CheckByes(event_id, nxt_player[0]) == False:
+                        # Swap the players
+                        matchups[matches][0 if j % 2 == 1 else 2] = player[0]
+                        matchups[matches][1 if j % 2 == 1 else 3] = player[1]
+                        matchups[len(matchups) - 1][0] = nxt_player[0]
+                        matchups[len(matchups) - 1][1] = nxt_player[1]
                         break
                     j += 1
                     if j % 2 == 1:
                         matches -= 1
-                reportWithBye(event_id, matchups)
-            else:
-                reportWithBye(event_id, matchups)
+            tr.SetRound(i)
+            reportWithBye(event_id, matchups)
         else:
             for match in matchups:
                 # Randomly decide who is the winner. 0 = player A wins.
                 winner = int(rand.uniform(0, 2))
                 reportMatch(event_id, 
                             match[2 if winner else 0], 
-                            match[0 if winner else 2],)
+                            match[0 if winner else 2])
+                if REPORTING:
+                    tr.SetRound(i)
+                    tr.AddMatchResult(match[1], match[3],
+                                      match[3 if winner else 1])
+        if REPORTING:
+            tr.AddFinalResults(playerStandings(event_id))
 
 
 def reportWithBye(event_id, matchups):
-    c = len(matchups) - 1
-    b = matchups[c][0]
+    '''Report a match taking into account byes.'''
+    c = len(matchups) - 2
+    b = (matchups[c+1][0], matchups[c+1][1])
     # Report the bye (always the last tuple)
-    report_match(event_id, b, b)
+    reportMatch(event_id, b[0], b[0])
+    if REPORTING:
+        tr.AddMatchResult(b[1], 'BYE', b[1])
     # Report the rest
     for match in matchups:
-        if c < 0
-            break 
         winner = int(rand.uniform(0, 2))
         reportMatch(event_id, 
                     match[2 if winner else 0], 
-                    match[0 if winner else 2],)
+                    match[0 if winner else 2])
+        if REPORTING:
+            tr.AddMatchResult(match[1], match[3], match[3 if winner else 1])
         c -= 1
+        if c < 0:
+            break
 
 
 def runSim():
-    #deleteEvents()
-    eid = createEvent("Immortal Melee")
+    # 16 Player tournament
+    event_name = "Immortal Melee"
+    eid = createEvent(event_name)
+    tr.Filename(event_name)
+    tr.EventName(event_name)
     addPlayers(eid)
-    runRounds(eid)
+    simTournament(eid) 
+    tr.WriteReport()
 
-    eid = createEvent("Rue Rampage")
+    # 8 Player tournament
+    event_name = "Rue Rampage"
+    tr.ClearReport()
+    tr.Filename(event_name)
+    tr.EventName(event_name)
+    eid = createEvent(event_name)
     addPlayers(eid, 8)
-    runRounds(eid)
+    simTournament(eid)
+    tr.WriteReport()
+
+    # 11 Player tournament with byes
+    event_name = "Bye Bye Battle"
+    tr.ClearReport()
+    tr.Filename(event_name)
+    tr.EventName(event_name)
+    eid = createEvent(event_name)
+    addPlayers(eid, 11)
+    simTournament(eid)
+    tr.WriteReport()
 
 runSim()

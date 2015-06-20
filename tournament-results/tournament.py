@@ -177,7 +177,7 @@ def reportMatch(event_id, winner, loser):
       loser:  the id number of the player who lost
     """
     q = """
-        INSERT INTO matches (event_id, player_id_A, player_id_B, tie)
+        INSERT INTO matches (event_id, player_id_win, player_id_lose, tie)
         VALUES (%s, %s, %s, %s);
         """
     db = connect()
@@ -207,14 +207,39 @@ def swissPairings(event_id):
     db = connect()
     cur = db.cursor()
     pc = countPlayers(event_id) 
-    if pc % 2 == 0 and pc != 0:
+    # pc % 2 == 0 and
+    if pc != 0:
         cur.execute(q, [event_id,])
         matchups = []
         for i in range(0, pc / 2):
             tpl = cur.fetchmany(2)
-            matchups.append((tpl[0][0], tpl[0][1], tpl[1][0], tpl[1][1]))
+            matchups.append([tpl[0][0], tpl[0][1], tpl[1][0], tpl[1][1]])
+        
+        if pc % 2 == 1:
+            tpl = cur.fetchmany(1)
+            matchups.append([tpl[0][0], tpl[0][1]])
         db.close()
         return matchups
     else:
         db.close()
         return None
+
+def CheckByes(event_id, player_id):
+    """Returns whether the player has had a bye already."""
+    q = """
+    SELECT COUNT(*) FROM matches 
+    WHERE event_id = %s 
+    AND player_id_win = %s
+    AND player_id_win = player_id_lose;
+    """
+    db = connect()
+    cur = db.cursor()
+    cur.execute(q, [event_id, player_id,])
+    count = cur.fetchall()
+    count = [int(row[0]) for row in count]
+    db.close()
+    if count[0] >= 1:
+        return True
+    else:
+        return False
+           
