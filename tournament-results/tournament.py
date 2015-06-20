@@ -169,12 +169,14 @@ def playerStandings(event_id):
     return ranking
 
 
-def reportMatch(event_id, winner, loser):
+def reportMatch(event_id, winner, loser, tie = False):
     """Records the outcome of a single match between two players.
 
     Args:
-      winner:  the id number of the player who won
-      loser:  the id number of the player who lost
+      event_id: Id of the event to report on
+      winner:  The id number of the player who won
+      loser:  The id number of the player who lost
+      tie: Whether or not the match was a tie
     """
     q = """
         INSERT INTO matches (event_id, player_id_win, player_id_lose, tie)
@@ -182,7 +184,7 @@ def reportMatch(event_id, winner, loser):
         """
     db = connect()
     cur = db.cursor()
-    cur.execute(q, [event_id, winner, loser, False,])
+    cur.execute(q, [event_id, winner, loser, tie,])
     db.commit()
     db.close()
 
@@ -202,12 +204,10 @@ def swissPairings(event_id):
         id2: the second player's unique id
         name2: the second player's name
     """
-    #count_q = "SELECT COUNT(*) FROM players;"
     q = "SELECT player_id, player_name FROM player_standings WHERE event_id = %s;"
     db = connect()
     cur = db.cursor()
     pc = countPlayers(event_id) 
-    # pc % 2 == 0 and
     if pc != 0:
         cur.execute(q, [event_id,])
         matchups = []

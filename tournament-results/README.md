@@ -22,5 +22,5 @@ Steps:
 # Connect to the tournament database with __\c tournament;__
 # Exit pgsql __\q__
 # Run the unit test __python tournament_test.py__
-# All tests should pass.
+# All tests should pass. (Additional were added to base set.)
 # Run the simulation with __python tournament_sim.py__. It will generate an HTML report for the results of the tournaments "Immortal Melee", "Rue Rampage", and "Bye Bye Battle".
