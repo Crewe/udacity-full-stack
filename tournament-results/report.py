@@ -1,4 +1,7 @@
-import webbrowser
+#!/usr/bin/env python
+#
+# report.py - Reporting class for generating tournament stats
+
 
 class TournamentReport(object):
     """A simple class to report on tournaments"""
@@ -6,18 +9,18 @@ class TournamentReport(object):
     report_header = """<HTML>
 <head>
     <style type="text/css">
-    .matchup { 
+    .matchup {
         display: inline-block;
         float: left;
     }
-    .player { 
-        width:150px; 
-        height: 20px; 
+    .player {
+        width:150px;
+        height: 20px;
         display: inline-block;
         padding: 2px 5px;
     }
 
-    .win { 
+    .win {
         border-top: 1px solid black;
         border-right: 1px solid black;
         border-bottom: 1px solid black;
@@ -30,13 +33,13 @@ class TournamentReport(object):
         position:fixed;
         font-weight: bold;
     }
-    .p-top { 
+    .p-top {
         background-color: #aaa;
         border-top: 1px solid black;
-        border-right: 1px solid black; 
+        border-right: 1px solid black;
     }
-    .p-bot { 
-        border-right: 1px solid black; 
+    .p-bot {
+        border-right: 1px solid black;
         border-bottom: 1px solid black;
     }
 
@@ -55,10 +58,10 @@ class TournamentReport(object):
 
     .bolded { font-weight: bold; }
 
-    .round { 
-        display:inline-block; 
-        width: 250px; 
-        float: left; 
+    .round {
+        display:inline-block;
+        width: 250px;
+        float: left;
         padding-bottom: 30px;
     }
 
@@ -89,12 +92,12 @@ table.results td {
     </style>
 </head>
 <body>
-"""   
+"""
 
     footer = "</body></HTML>"
 
-    def __init__(self, filename = "temp"):
-        self.filename = filename
+    def __init__(self, filename="temp"):
+        self.file_name = filename
         self.match_count = 1
         self.player_data = "<h2>Players</h2>"
         self.matches = {}
@@ -103,29 +106,25 @@ table.results td {
         self.event_name = "<h1>" + filename + " Results</h1>"
         self.round = 1
 
-    def SetRound(self, round):
-        self.round = round + 1
+    def setRound(self, rnd):
+        self.round = rnd + 1
 
-    def Filename(self, name):
-        self.filename = name + ".html"
+    def filename(self, name):
+        self.file_name = name + ".html"
 
-
-    def EventName(self, name):
+    def eventName(self, name):
         self.event_name = "<h1>" + name + " Results</h1>"
 
-
-    def AddPlayerList(self, players):
+    def addPlayerList(self, players):
         self.player_data += "<ol>"
         for p in players:
             self.player_data += "<li>" + p + "</li>"
         self.player_data += "</ol>"
 
-
-    def ClearReport(self):
+    def clearReport(self):
         self.__init__()
 
-
-    def AddMatchResult(self, p1, p2, winner):
+    def addMatchResult(self, p1, p2, winner):
         m = """
         <div class="m-id">
             {0}{1}
@@ -139,16 +138,15 @@ table.results td {
             <div class="player">{4}</div>
         </div> -->
 """.format(self.round, self.match_count, p1, p2, winner,
-           bolda = "bolded" if p1 == winner else "",
-           boldb = "bolded" if p2 == winner else "")
+           bolda="bolded" if p1 == winner else "",
+           boldb="bolded" if p2 == winner else "")
         if str(self.round) in self.matches:
             self.matches[str(self.round)] += m
         else:
-            self.matches[str(self.round)] = m 
+            self.matches[str(self.round)] = m
         self.match_count += 1
 
-
-    def AddFinalResults(self, data):
+    def addFinalResults(self, data):
         self.result_data += """
         <h3>Round {0}</h3>
         <table class="results"><tr>
@@ -163,15 +161,14 @@ table.results td {
             x += 1
         self.result_data += "</table><br/>"
 
-
-    def WriteReport(self):
+    def writeReport(self):
         self.match_data += '<div style="display: inline-block;">'
         for key in range(len(self.matches)):
             m = '<div class="round">{0}</div>'.format(self.matches[str(key + 1)])
             self.match_data += m
         self.match_data += "</div>"
-        self.file = open(self.filename, 'w')
-        self.file.write(self.report_header + self.event_name + 
-                        self.player_data + self.match_data + 
+        self.file = open(self.file_name, 'w')
+        self.file.write(self.report_header + self.event_name +
+                        self.player_data + self.match_data +
                         self.result_data + self.footer)
         self.file.close()

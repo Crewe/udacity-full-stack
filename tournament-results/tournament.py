@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# 
+#
 # tournament.py -- implementation of a Swiss-system tournament
 #
 
@@ -13,7 +13,7 @@ def connect():
 
 def executeQuery(query, connection):
     """Executes a query on the given connection.  Returns nothing.
-    Args: 
+    Args:
       query: The query string to be executed.
       connection: The database connection object.
     """
@@ -24,9 +24,9 @@ def executeQuery(query, connection):
 
 
 def executeResultQuery(query, connection):
-    """Executes a query on the provided connection. 
+    """Executes a query on the provided connection.
     Returns results of the query.
-    Args: 
+    Args:
       query: The query string to be executed.
       connection: The database connection object.
     """
@@ -52,7 +52,7 @@ def deleteEvent(event_id):
     q = "DELETE FROM events WHERE event_id = %s;"
     db = connect()
     cur = db.cursor()
-    cur.execute(q, [event_id,])
+    cur.execute(q, [event_id, ])
     db.commit()
     db.close()
 
@@ -69,7 +69,7 @@ def deletePlayersFromEvent(event_id):
     q = "DELETE FROM players WHERE event_id = %s;"
     db = connect()
     cur = db.cursor()
-    cur.execute(q, [event_id,])
+    cur.execute(q, [event_id, ])
     db.commit()
     db.close()
 
@@ -88,17 +88,17 @@ def countEvents():
     return count[0]    
 
 
-def countPlayers(event_id = None):
+def countPlayers(event_id=None):
     """Returns the number of players currently registered."""
     q1 = "SELECT COUNT(*) FROM players WHERE event_id = %s;"
     q2 = "SELECT COUNT(*) FROM players;"
-    
-    if event_id == None:
-        result = executeResultQuery(q2, connect()) 
+
+    if event_id is None:
+        result = executeResultQuery(q2, connect())
     else:
         db = connect()
         cur = db.cursor()
-        cur.execute(q1, [event_id,])
+        cur.execute(q1, [event_id, ])
         result = cur.fetchall()
         db.close()
     count = [int(row[0]) for row in result]
@@ -110,7 +110,7 @@ def createEvent(event_name):
     q = "INSERT INTO events (event_name) VALUES (%s) RETURNING event_id;"
     db = connect()
     cur = db.cursor()
-    cur.execute(q, [event_name,])
+    cur.execute(q, [event_name, ])
     eid = [int(row[0]) for row in cur.fetchall()]
     db.commit()
     db.close()
@@ -119,21 +119,21 @@ def createEvent(event_name):
 
 def registerPlayer(event_id, name):
     """Adds a player to the tournament database.
-  
+
     The database assigns a unique serial id number for the player.  (This
     should be handled by your SQL database schema, not in your Python code.)
-  
+
     Args:
       event_id: The id of the event the player is registering for.
       name: the player's full name (need not be unique).
     """
     q1 = """
-    INSERT INTO players (event_id, player_name) 
+    INSERT INTO players (event_id, player_name)
     VALUES (%s, %s) RETURNING player_id;
     """
     db = connect()
     cur = db.cursor()
-    cur.execute(q1, [event_id, name,])
+    cur.execute(q1, [event_id, name, ])
     db.commit()
     db.close()
 
@@ -141,8 +141,8 @@ def registerPlayer(event_id, name):
 def playerStandings(event_id):
     """Returns a list of the players and their win records, sorted by wins.
 
-    The first entry in the list should be the player in first place, or a player
-    tied for first place if there is currently a tie.
+    The first entry in the list should be the player in first place, or a
+    player tied for first place if there is currently a tie.
 
     Returns:
       A list of tuples, each of which contains (id, name, wins, matches):
@@ -157,9 +157,9 @@ def playerStandings(event_id):
     """
     db = connect()
     cur = db.cursor()
-    cur.execute(q, [event_id,])
+    cur.execute(q, [event_id, ])
     result = cur.fetchall()
-    ranking = [( 
+    ranking = [(
         int(row[0]),
         str(row[1]),
         int(row[2]),
@@ -169,7 +169,7 @@ def playerStandings(event_id):
     return ranking
 
 
-def reportMatch(event_id, winner, loser, tie = False):
+def reportMatch(event_id, winner, loser, tie=False):
     """Records the outcome of a single match between two players.
 
     Args:
@@ -184,19 +184,19 @@ def reportMatch(event_id, winner, loser, tie = False):
         """
     db = connect()
     cur = db.cursor()
-    cur.execute(q, [event_id, winner, loser, tie,])
+    cur.execute(q, [event_id, winner, loser, tie, ])
     db.commit()
     db.close()
 
- 
+
 def swissPairings(event_id):
     """Returns a list of pairs of players for the next round of a match.
-  
+
     Assuming that there are an even number of players registered, each player
     appears exactly once in the pairings.  Each player is paired with another
     player with an equal or nearly-equal win record, that is, a player adjacent
     to him or her in the standings.
-  
+
     Returns:
       A list of tuples, each of which contains (id1, name1, id2, name2)
         id1: the first player's unique id
@@ -207,14 +207,14 @@ def swissPairings(event_id):
     q = "SELECT player_id, player_name FROM player_standings WHERE event_id = %s;"
     db = connect()
     cur = db.cursor()
-    pc = countPlayers(event_id) 
+    pc = countPlayers(event_id)
     if pc != 0:
-        cur.execute(q, [event_id,])
+        cur.execute(q, [event_id, ])
         matchups = []
         for i in range(0, pc / 2):
             tpl = cur.fetchmany(2)
             matchups.append([tpl[0][0], tpl[0][1], tpl[1][0], tpl[1][1]])
-        
+
         if pc % 2 == 1:
             tpl = cur.fetchmany(1)
             matchups.append([tpl[0][0], tpl[0][1]])
@@ -224,7 +224,8 @@ def swissPairings(event_id):
         db.close()
         return None
 
-def CheckByes(event_id, player_id):
+
+def checkByes(event_id, player_id):
     """Returns whether the player has had a bye already."""
     q = """
     SELECT COUNT(*) FROM matches 
@@ -234,7 +235,7 @@ def CheckByes(event_id, player_id):
     """
     db = connect()
     cur = db.cursor()
-    cur.execute(q, [event_id, player_id,])
+    cur.execute(q, [event_id, player_id, ])
     count = cur.fetchall()
     count = [int(row[0]) for row in count]
     db.close()
@@ -242,4 +243,3 @@ def CheckByes(event_id, player_id):
         return True
     else:
         return False
-           
