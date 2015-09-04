@@ -26,6 +26,11 @@ DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
 
+@app.route('/')
+@app.route('/catalog')
+def showCatalog():
+    return render_template('index.html')
+
 
 if __name__ == '__main__':
     # os.urandam(24)
