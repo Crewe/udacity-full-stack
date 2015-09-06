@@ -28,12 +28,12 @@ class User(Base):
         }
 
 
-class Restaurant(Base):
+class Category(Base):
     # Table to be ref'd in the database (must match the self.__name__)
-    __tablename__ = 'restaurant'
+    __tablename__ = 'category'
     # Table mapping informaiton
     id = Column(Integer, primary_key=True)
-    name = Column(String(80), nullable=False)
+    name = Column(String(80), nullable=False, unique=True)
     user_id = Column(Integer, ForeignKey('user.id'))
     user = relationship(User)
 
@@ -47,18 +47,18 @@ class Restaurant(Base):
         }
 
 
-class MenuItem(Base):
+class Item(Base):
     # Table to be ref'd in the database (must match the self.__name__)
-    __tablename__ = 'menu_item'
+    __tablename__ = 'item'
     # Table mapping information
     id = Column(Integer, primary_key=True)
-    name = Column(String(80), nullable=False)
-    course = Column(String(250))
+    name = Column(String(80), nullable=False, unique=True)
     description = Column(String(250))
     price = Column(String(8))
-    restaurant_id = Column(Integer, ForeignKey('restaurant.id'))
+    picture = Column(String(250))
+    category_id = Column(Integer, ForeignKey('category.id'))
     user_id = Column(Integer, ForeignKey('user.id'))
-    restaurant = relationship(Restaurant)
+    category = relationship(Category)
     user = relationship(User)
 
     @property
@@ -67,9 +67,9 @@ class MenuItem(Base):
         return {
             'id': self.id,
             'name': self.name,
-            'course': self.course,
-            'description':  self.description,
+            'description': self.description,
             'price': self.price,
+            'picture': self.picture,
             'user_id': self.user_id,
         }
 
