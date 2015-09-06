@@ -1,5 +1,5 @@
 # seed_database.py
-# Data to initialize the database with.
+# Data to populate the database with.
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -20,6 +20,7 @@ user1 = User(name="Crewe Wrecking",
 session.add(user1)
 session.commit()
 print "User {0} added.".format(user1.name)
+
 
 # Create Categories
 cat1 = Category(user_id=1,
@@ -45,6 +46,7 @@ cat4 = Category(user_id=1,
 session.add(cat4)
 session.commit()
 print "Category {0} added.".format(cat4.name)
+
 
 # Create items
 item1 = Item(user_id=1,

@@ -33,7 +33,7 @@ class Category(Base):
     __tablename__ = 'category'
     # Table mapping informaiton
     id = Column(Integer, primary_key=True)
-    name = Column(String(80), nullable=False)
+    name = Column(String(80), nullable=False, unique=True)
     user_id = Column(Integer, ForeignKey('user.id'))
     user = relationship(User)
 
@@ -52,7 +52,7 @@ class Item(Base):
     __tablename__ = 'item'
     # Table mapping information
     id = Column(Integer, primary_key=True)
-    name = Column(String(80), nullable=False)
+    name = Column(String(80), nullable=False, unique=True)
     description = Column(String(250))
     price = Column(String(8))
     picture = Column(String(250))
