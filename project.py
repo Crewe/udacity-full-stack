@@ -1,7 +1,7 @@
 # project.py
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from database_setup import Base, Restaurant, MenuItem, User
+from database_setup import Base, Category, Item, User
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 
