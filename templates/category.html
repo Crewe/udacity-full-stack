@@ -2,4 +2,50 @@
 {% block content %}
 {% include "navbar.html" %}
 
+
+<!-- Page Content -->
+<div class="container">
+
+    <div class="row">
+
+        <div class="col-md-2">
+            {% include "categorymenu.html" %}
+        </div>
+
+        <div class="col-md-10">
+
+            <p class="lead">Items in <i>{{category}} - </i>
+                <small><span class="text-info">Edit</span> | 
+                <span class="text-danger">Delete</span></small>
+            </p>
+             
+            <div class="row">
+                {% if items %}
+                    {% for item in items %}
+                    <div class="col-lg-4 col-md-4">
+                        <div class="thumbnail">
+                            <img src="{{item.picture}}" alt="">
+                            <div class="caption">
+                                <h4><a href="{{url_for('showItem', cat_name=item.category.name, item_name=item.name)}}">
+                                {{item.name}}</a></h4>
+                                <p>{{item.description[:60]}} ...</p>
+                                <p class="pull-right">{{item.price}}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-md-10">
+                    <h2>No items in this category...</h2>
+                    </div>
+                {% endif %}
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+<!-- /.container -->
+
 {% endblock %}

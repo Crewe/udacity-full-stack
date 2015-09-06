@@ -37,22 +37,39 @@ def catalogJSON():
 @app.route('/')
 @app.route('/catalog')
 def showCatalog():
-    # Show 10 most recent items
-    return render_template('index.html')
+    # Show 6 most recent items
+    categories = getCategories()
+    items = getAllItems()
+    # Reverse the list so the most recent items are at the front
+    items = items[::-1]
+    return render_template('index.html', 
+                           categories=categories, 
+                           recent_items=items[:6])
 
 
 @app.route('/catalog/<cat_name>/items')
 def showCategory(cat_name):
     # Show the items within a category
-    return "Items in {0} category.".format(cat_name)
-    return render_template('category.html')
+    category = getCategory(cat_name)
+    if not category:
+        return redirect('page_not_found')
+
+    items = getItems(cat_name)
+    categories = getCategories()
+    return render_template('category.html',
+                           categories=categories,
+                           category=cat_name, 
+                           items=items)
 
 
 @app.route('/catalog/<cat_name>/<item_name>/details')
 def showItem(cat_name, item_name):
     # Show the detalis about an item
-    return "{1} in the {0} category.".format(cat_name, item_name)
-    return render_template('item.html')
+    item = getItem(item_name)
+    if not item:
+        return redirect('page_not_found')
+        
+    return render_template('item.html', item=item)
 
 
 # Error handling routes
@@ -66,14 +83,42 @@ def page_not_found(error):
     return render_template('500.html'), 500
 
 
+def getCategory(cat_name):
+    try:
+        category = session.query(Category).filter_by(name=cat_name).one()
+        return category
+    except:
+        return []
+
+
 def getCategories():
     categories = session.query(Category).order_by(Category.name).all()
     return categories
 
 
+def getAllItems():
+    try:
+        items = session.query(Item).all()
+        return items
+    except:
+        return []
+
+
 def getItems(category):
-    items = session.query(Item).filter_by(category=category).all()
-    return items
+    try:
+        category = session.query(Category).filter_by(name=category).one()
+        items = session.query(Item).filter_by(category=category).all()
+        return items
+    except:
+        return []
+
+
+def getItem(item_name):
+    try:
+        item = session.query(Item).filter_by(name=item_name).one()
+        return item
+    except:
+        return []
 
 
 if __name__ == '__main__':

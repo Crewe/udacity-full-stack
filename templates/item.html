@@ -2,4 +2,41 @@
 {% block content %}
 {% include "navbar.html" %}
 
+<!-- Page Content -->
+<div class="container">
+
+    <div class="row">
+
+        <div class="col-md-1"></div>
+
+        <div class="col-md-10">
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    <h3 class="panel-title">
+                        <i>{{item.name}}</i>
+                        <span class="pull-right">{{item.price}}</span>
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <div class="caption col-md-3">
+                        <img src='http://placehold.it/150x320' alt='' />
+                    </div>
+                    <blockquote>
+                        <p>{{item.description}}</p>
+                    </blockquote>
+                    <p class="pull-right">
+                        <span class="text-info">Edit</span> | 
+                        <span class="text-danger">Delete</span>
+                    </p>
+                </div>
+            </div>
+            <p><a href="{{url_for('showCategory', cat_name=item.category.name)}}">&lt; Back To {{item.category.name}}</a>
+        </div>
+
+        <div class="col-md-1"></div>
+    </div>
+
+</div>
+<!-- /.container -->
+
 {% endblock %}
