@@ -47,10 +47,10 @@ def catalogRSS():
        better of the two.
 
     Currenly using A becasue folder/file permissions may affect people.
+    It's also easier :P
     """
 
-    items = getAllItems()
-    rss = generateRSS(items)
+    rss = generateRSS()
     #with open("rss.xml", "r") as rss_file:
     #    rss_feed = rss_file.read()
     response = make_response(rss.to_xml(), 200)
@@ -295,7 +295,7 @@ def addItem(cat_name):
             session.add(newItem)
             session.commit()
             # Update the RSS Feed: SEE catalogRSS()
-            #generateRSS(getAllItems())
+            #generateRSS()
             flash("Successfully added {0} to {1}!".format(newItem.name, category.name))
             return redirect(url_for('showCategory', cat_name=category.name))
         except:
@@ -436,8 +436,9 @@ def getUserID(email):
         return None
 
 
-def generateRSS(items):
+def generateRSS():
     rss_items = []
+    items = getAllItems()
     for i in items:
         category = getCategoryById(i.category_id)
         url = url_for('showItem', cat_name=category.name, item_name=i.name)
