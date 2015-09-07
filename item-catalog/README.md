@@ -19,14 +19,11 @@ Steps
 1. Change directories to */vagrant/item-catalog*
 
 Since I did run into issues with serialization and authorization so to be safe
-downgrade the follow packages by running the following:
+downgrade the follow packages by running the following. Then install PyRSS2Gen:
 
     sudo pip install werkzeug==0.8.3
     sudo pip install flask==0.9
     sudo pip install Flask-Login==0.1.3
-
-1. Now install the PyRSS2Gen library:
-    
     cd PyRSS2Gen
     sudo python setup.py install
     cd ..
