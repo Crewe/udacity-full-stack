@@ -29,7 +29,7 @@ session = DBSession()
 
 @app.route('/catalog.json')
 def catalogJSON():
-    catalog=[]
+    return jsonify(Catalog=serializeCatalog())
     categories = getCategories()
     return jsonify(Categories=[c.serialize for c in categories])
 
@@ -189,6 +189,10 @@ def getItem(item_name):
         return item
     except:
         return []
+
+
+def serializeCatalog():
+    return {'nothing' : 'go away'}
 
 
 if __name__ == '__main__':
