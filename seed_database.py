@@ -61,7 +61,7 @@ item1 = Item(user_id=1,
              description='Felt F65X Cylclocross Bicycle.',
              price='$2048.32',
              thumbnail='http://placehold.it/320x150',
-             picture='http://placehold.it/320x320')
+             picture='http://placehold.it/173x195')
 session.add(item1)
 session.commit()
 print "Item {0} added.".format(item1.name)
@@ -72,7 +72,7 @@ item2 = Item(user_id=1,
              description='Keep a small space nice and cozy warm with this 4500BTU/hr fireplace.',
              price='$650.78',
              thumbnail='http://placehold.it/320x150',
-             picture='http://placehold.it/320x320')
+             picture='http://placehold.it/173x195')
 session.add(item2)
 session.commit()
 print "Item {0} added.".format(item2.name)
@@ -83,7 +83,7 @@ item3 = Item(user_id=1,
              description='Get the wax spinnin\' and music groovin\'',
              price='$175.87',
              thumbnail='http://placehold.it/320x150',
-             picture='http://placehold.it/320x320')
+             picture='http://placehold.it/173x195')
 session.add(item3)
 session.commit()
 print "Item {0} added.".format(item3.name)
@@ -94,7 +94,7 @@ item4 = Item(user_id=1,
              description='By Daniel E. Kahneman',
              price='$9.99',
              thumbnail='http://placehold.it/320x150',
-             picture='http://placehold.it/320x320')
+             picture='http://placehold.it/173x195')
 session.add(item4)
 session.commit()
 print "Item {0} added.".format(item4.name)
@@ -105,7 +105,7 @@ item5 = Item(user_id=1,
              description='Why We Do What We Do in Life and Business. By Charles Duhigg',
              price='$29.99',
              thumbnail='http://placehold.it/320x150',
-             picture='http://placehold.it/320x320')
+             picture='http://placehold.it/173x195')
 session.add(item5)
 session.commit()
 print "Item {0} added.".format(item5.name)
@@ -116,7 +116,7 @@ item6 = Item(user_id=1,
              description='The Stanley Parable is an interactive story modification built on the Source game engine, designed by Davey Wreden, and released in July 2011',
              price='14.99',
              thumbnail='http://placehold.it/320x150',
-             picture='http://placehold.it/320x320')
+             picture='http://placehold.it/173x195')
 session.add(item6)
 session.commit()
 print "Item {0} added.".format(item6.name)
@@ -127,7 +127,7 @@ item7 = Item(user_id=1,
              description='A made to order 20 square-meter tiny house on a 2 axel square tube steel trailer. Just add yourself.',
              price='$48324.32',
              thumbnail='http://placehold.it/320x150',
-             picture='http://placehold.it/320x320')
+             picture='http://placehold.it/173x195')
 session.add(item7)
 session.commit()
 print "Item {0} added.".format(item7.name)

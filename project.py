@@ -29,9 +29,155 @@ session = DBSession()
 
 @app.route('/catalog.json')
 def catalogJSON():
-    return jsonify(Catalog=serializeCatalog())
     categories = getCategories()
+    items = getAllItems()
+    data = set()
+
+    Catalog = [c.serialize for c in categories]
+    for cat in Catalog:
+        for item in items:
+            if item.category.name == cat['name']:
+                cat['items'] = item.serialize
+        print data
+
     return jsonify(Categories=[c.serialize for c in categories])
+
+
+@app.route('/catalog/login')
+def showLogin():
+    state = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(32))
+    login_session['state'] = state
+    return render_template('login.html', state=login_session['state'])
+
+
+@app.route('/catalog/gconnect', methods=['POST'])
+def googleConnect():
+      # Validate state token
+    if request.args.get('state') != login_session['state']:
+        response = make_response(json.dumps('Invalid state parameter.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    # Obtain authorization code
+    code = request.data
+
+    try:
+        # Upgrade the authorization code into a credentials object
+        oauth_flow = flow_from_clientsecrets('client_secrets.json', scope='')
+        oauth_flow.redirect_uri = 'postmessage'
+        credentials = oauth_flow.step2_exchange(code)
+    except FlowExchangeError:
+        response = make_response(
+            json.dumps('Failed to upgrade the authorization code.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Check that the access token is valid.
+    access_token = credentials.access_token
+    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
+           % access_token)
+    h = httplib2.Http()
+    result = json.loads(h.request(url, 'GET')[1])
+    # If there was an error in the access token info, abort.
+    if result.get('error') is not None:
+        response = make_response(json.dumps(result.get('error')), 500)
+        response.headers['Content-Type'] = 'application/json'
+
+    # Verify that the access token is used for the intended user.
+    gplus_id = credentials.id_token['sub']
+    if result['user_id'] != gplus_id:
+        response = make_response(
+            json.dumps("Token's user ID doesn't match given user ID."), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Verify that the access token is valid for this app.
+    if result['issued_to'] != CLIENT_ID:
+        response = make_response(
+            json.dumps("Token's client ID does not match app's."), 401)
+        print "Token's client ID does not match app's."
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    stored_credentials = login_session.get('credentials')
+    stored_gplus_id = login_session.get('gplus_id')
+    if stored_credentials is not None and gplus_id == stored_gplus_id:
+        response = make_response(json.dumps('Current user is already connected.'),
+                                 200)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Store the access token in the session for later use.
+    login_session['credentials'] = credentials
+    login_session['gplus_id'] = gplus_id
+
+    # Get user info
+    userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
+    params = {'access_token': credentials.access_token, 'alt': 'json'}
+    answer = requests.get(userinfo_url, params=params)
+
+    data = answer.json()
+
+    login_session['username'] = data['name']
+    login_session['picture'] = data['picture']
+    login_session['email'] = data['email']
+    login_session['provider'] = 'google'
+
+    # see if user exists, if it doesn't make a new one
+    user_id = getUserID(data["email"])
+    if not user_id:
+        user_id = createUser(login_session)
+    login_session['user_id'] = user_id
+
+    output = ''
+    output += '<h1>Welcome, '
+    output += login_session['username']
+    output += '!</h1>'
+    output += '<img src="'
+    output += login_session['picture']
+    output += ' " style = "width: 150px; height: 150px;border-radius: 75px;-webkit-border-radius: 75px;-moz-border-radius: 75px;"> '
+    flash("you are now logged in as %s" % login_session['username'])
+    print "done!"
+    return output
+
+
+@app.route('/catalog/disconnect')
+def disconnect():
+    # Reset the user's sesson.
+    print login_session
+    if 'provider' in login_session:
+        if login_session['provider'] == 'google':
+            gdisconnect()
+            del login_session['gplus_id']
+            del login_session['credentials']
+
+        del login_session['username']
+        del login_session['email']
+        del login_session['picture']
+        flash("You have been logged out.")
+        return redirect(url_for('showCatalog'))
+    else:
+        flash("You weren't even logged in.")
+        return redirect(url_for('showCatalog'))
+
+
+def gdisconnect():
+    # Only disconnect a connected user.
+    credentials = login_session.get('credentials')
+    if credentials is None:
+        response = make_response(
+            json.dumps('Current user not connected.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    access_token = credentials.access_token
+    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+    h = httplib2.Http()
+    result = h.request(url, 'GET')[0]
+    if result['status'] != '200':
+        # For whatever reason, the given token was invalid.
+        response = make_response(
+            json.dumps('Failed to revoke token for given user.', 400))
+        response.headers['Content-Type'] = 'application/json'
+        return response
 
 
 @app.route('/')
@@ -68,25 +214,37 @@ def showItem(cat_name, item_name):
     item = getItem(item_name)
     if not item:
         return redirect('NotFound')
-        
-    return render_template('item.html', item=item)
+
+    creator = getUserInfo(item.user_id)
+    return render_template('item.html', item=item, creator=creator)
 
 
 @app.route('/catalog/<cat_name>/item/add', methods=['GET', 'POST'])
 def addItem(cat_name):
+    if 'username' not in login_session:
+        return redirect('/catalog/login')
     category = getCategory(cat_name)
     categories = getCategories()
     if not category:
         return redirect('NotFound')
     if request.method == 'POST':
         try:
-            print request
-            print request.form
-            newItem = Item(user_id=1,
+            # Keep things clean looking by always having some sort of image
+            if request.form['item-pic']:
+                thumbnail_url = request.form['item-pic']
+            else:
+                thumbnail_url = 'http://placehold.it/173x195'
+            if request.form['item-thumb']:
+                picture_url = request.form['item-thumb'] 
+            else:
+                picture_url = 'http://placehold.it/320x150'
+
+            picture_url = 'http://placehold.it/173x195'
+            newItem = Item(user_id=login_session['user_id'],
                            name=escape(request.form['item-name']),
                            price=escape(request.form['item-price']),
-                           thumbnail=escape(request.form['item-thumb']),
-                           picture=escape(request.form['item-pic']),
+                           thumbnail=escape(thumbnail_url),
+                           picture=escape(picture_url),
                            category_id=request.form['item-cat'],
                            description=escape(request.form['item-desc']))
             session.add(newItem)
@@ -102,6 +260,8 @@ def addItem(cat_name):
 
 @app.route('/catalog/<cat_name>/<item_name>/edit', methods=['GET', 'POST'])
 def editItem(cat_name, item_name):
+    if 'username' not in login_session:
+        return redirect('/catalog/login')
     itemToEdit = getItem(item_name)
     if request.method == 'POST':
         if request.form['item-name']:
@@ -110,8 +270,12 @@ def editItem(cat_name, item_name):
             itemToEdit.price = escape(request.form['item-price'])
         if request.form['item-thumb']:
             itemToEdit.thumbnail = escape(request.form['item-thumb'])
+        else:
+            itemToEdit.thumbnail = 'http://placehold.it/320x150'
         if request.form['item-pic']:
             itemToEdit.picture = escape(request.form['item-pic'])
+        else:
+            itemToEdit.picture = 'http://placehold.it/173x195'
         if request.form['item-cat']:
             itemToEdit.category_id = request.form['item-cat']
         if request.form['item-desc']:
@@ -127,6 +291,8 @@ def editItem(cat_name, item_name):
 
 @app.route('/catalog/<cat_name>/<item_name>/delete', methods=['GET', 'POST'])
 def deleteItem(cat_name, item_name):
+    if 'username' not in login_session:
+        return redirect('catalog/login')
     itemToDelete = getItem(item_name)
     if request.method == 'POST':
         session.delete(itemToDelete)
@@ -191,8 +357,27 @@ def getItem(item_name):
         return []
 
 
-def serializeCatalog():
-    return {'nothing' : 'go away'}
+def createUser(login_session):
+    newUser = User(name=login_session['username'], 
+                   email=login_session['email'], 
+                   picture=login_session['picture'])
+    session.add(newUser)
+    session.commit()
+    user = session.query(User).filter_by(email=login_session['email']).one()
+    return user.id
+
+
+def getUserInfo(user_id):
+    user = session.query(User).filter_by(id=user_id).one()
+    return user
+
+
+def getUserID(email):
+    try:
+        user = session.query(User).filter_by(email=email).one()
+        return user.id
+    except:
+        return None
 
 
 if __name__ == '__main__':
