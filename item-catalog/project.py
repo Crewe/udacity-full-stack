@@ -61,18 +61,15 @@ def catalogRSS():
 # Some basic API JSON endpoints
 @app.route('/catalog.json')
 def catalogJSON():
-    categories = getCategories()
-    items = getAllItems()
-    data = set()
-
-    Catalog = [c.serialize for c in categories]
+    data = []
+    Catalog = [c.serialize for c in getCategories()]
     for cat in Catalog:
-        for item in items:
-            if item.category.name == cat['name']:
-                cat['items'] = item.serialize
-                data
-        print data
+        cat['items'] = [i.serialize for i in getItems(cat['name'])]
+        data.append(cat)
 
+    response = make_response(json.dumps(data, sort_keys=True, indent=2), 200)
+    response.headers['Content-Type'] = 'application/json'
+    return response
     return jsonify(Categories=[c.serialize for c in categories])
 
 
@@ -97,7 +94,7 @@ def showLogin():
 
 @app.route('/catalog/gconnect', methods=['POST'])
 def googleConnect():
-      # Validate state token
+    # Validate state token
     if request.args.get('state') != login_session['state']:
         response = make_response(json.dumps('Invalid state parameter.'), 401)
         response.headers['Content-Type'] = 'application/json'
