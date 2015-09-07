@@ -39,6 +39,7 @@ def catalogJSON():
         for item in items:
             if item.category.name == cat['name']:
                 cat['items'] = item.serialize
+                data
         print data
 
     return jsonify(Categories=[c.serialize for c in categories])
