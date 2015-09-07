@@ -1,0 +1,6 @@
+<p class="lead">Categories</p>
+<div class="list-group">
+{% for c in categories %}
+    <a href="{{url_for('showCategory', cat_name=c.name)}}" class="list-group-item">{{c.name}}</a>
+{% endfor %}
+</div>
