@@ -29,8 +29,17 @@ session = DBSession()
 
 @app.route('/catalog.json')
 def catalogJSON():
-    return jsonify(Catalog=serializeCatalog())
     categories = getCategories()
+    items = getAllItems()
+    data = set()
+
+    Catalog = [c.serialize for c in categories]
+    for cat in Catalog:
+        for item in items:
+            if item.category.name == cat['name']:
+                cat['items'] = item.serialize
+        print data
+
     return jsonify(Categories=[c.serialize for c in categories])
 
 
@@ -41,14 +50,7 @@ def showLogin():
     return render_template('login.html', state=login_session['state'])
 
 
-@app.route('/catalog/connect', methods=['POST'])
-def connect():
-    if request.args.get('provider') == 'gplus':
-        return googleConnect()
-    flash("bad provider")
-    return redirect('/')
-
-
+@app.route('/catalog/gconnect', methods=['POST'])
 def googleConnect():
       # Validate state token
     if request.args.get('state') != login_session['state']:
@@ -118,6 +120,13 @@ def googleConnect():
     login_session['username'] = data['name']
     login_session['picture'] = data['picture']
     login_session['email'] = data['email']
+    login_session['provider'] = 'google'
+
+    # see if user exists, if it doesn't make a new one
+    user_id = getUserID(data["email"])
+    if not user_id:
+        user_id = createUser(login_session)
+    login_session['user_id'] = user_id
 
     output = ''
     output += '<h1>Welcome, '
@@ -133,6 +142,25 @@ def googleConnect():
 
 @app.route('/catalog/disconnect')
 def disconnect():
+    # Reset the user's sesson.
+    print login_session
+    if 'provider' in login_session:
+        if login_session['provider'] == 'google':
+            gdisconnect()
+            del login_session['gplus_id']
+            del login_session['credentials']
+
+        del login_session['username']
+        del login_session['email']
+        del login_session['picture']
+        flash("You have been logged out.")
+        return redirect(url_for('showCatalog'))
+    else:
+        flash("You weren't even logged in.")
+        return redirect(url_for('showCatalog'))
+
+
+def gdisconnect():
     # Only disconnect a connected user.
     credentials = login_session.get('credentials')
     if credentials is None:
@@ -144,25 +172,12 @@ def disconnect():
     url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
     h = httplib2.Http()
     result = h.request(url, 'GET')[0]
-
-    if result['status'] == '200':
-        # Reset the user's sesson.
-        del login_session['credentials']
-        del login_session['gplus_id']
-        del login_session['username']
-        del login_session['email']
-        del login_session['picture']
-
-        response = make_response(json.dumps('Successfully disconnected.'), 200)
-        response.headers['Content-Type'] = 'application/json'
-        return redirect("/")
-    else:
+    if result['status'] != '200':
         # For whatever reason, the given token was invalid.
         response = make_response(
             json.dumps('Failed to revoke token for given user.', 400))
         response.headers['Content-Type'] = 'application/json'
-        flash('You are now logged out.')
-        return redirect('/')
+        return response
 
 
 @app.route('/')
@@ -214,15 +229,22 @@ def addItem(cat_name):
         return redirect('NotFound')
     if request.method == 'POST':
         try:
-            user_id = getUserId(login_session['email'])
-            print user_id
-            print request.form
-            print login_session
-            newItem = Item(user_id=user_id,
+            # Keep things clean looking by always having some sort of image
+            if request.form['item-pic']:
+                thumbnail_url = request.form['item-pic']
+            else:
+                thumbnail_url = 'http://placehold.it/173x195'
+            if request.form['item-thumb']:
+                picture_url = request.form['item-thumb'] 
+            else:
+                picture_url = 'http://placehold.it/320x150'
+
+            picture_url = 'http://placehold.it/173x195'
+            newItem = Item(user_id=login_session['user_id'],
                            name=escape(request.form['item-name']),
                            price=escape(request.form['item-price']),
-                           thumbnail=escape(request.form['item-thumb']),
-                           picture=escape(request.form['item-pic']),
+                           thumbnail=escape(thumbnail_url),
+                           picture=escape(picture_url),
                            category_id=request.form['item-cat'],
                            description=escape(request.form['item-desc']))
             session.add(newItem)
@@ -248,8 +270,12 @@ def editItem(cat_name, item_name):
             itemToEdit.price = escape(request.form['item-price'])
         if request.form['item-thumb']:
             itemToEdit.thumbnail = escape(request.form['item-thumb'])
+        else:
+            itemToEdit.thumbnail = 'http://placehold.it/320x150'
         if request.form['item-pic']:
             itemToEdit.picture = escape(request.form['item-pic'])
+        else:
+            itemToEdit.picture = 'http://placehold.it/173x195'
         if request.form['item-cat']:
             itemToEdit.category_id = request.form['item-cat']
         if request.form['item-desc']:
@@ -352,10 +378,6 @@ def getUserID(email):
         return user.id
     except:
         return None
-
-
-def serializeCatalog():
-    return {'nothing' : 'go away'}
 
 
 if __name__ == '__main__':
