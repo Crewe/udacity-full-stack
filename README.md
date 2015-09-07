@@ -21,9 +21,9 @@ Steps
 Since I did run into issues with serialization and authorization so to be safe
 downgrade the follow packages by running the following:
 
- sudo pip install werkzeug==0.8.3
- sudo pip install flask==0.9
- sudo pip install Flask-Login==0.1.3
+    sudo pip install werkzeug==0.8.3
+    sudo pip install flask==0.9
+    sudo pip install Flask-Login==0.1.3
 
 1. Next run database_setup.py
 1. then run seed_database.py to add some items to the database
