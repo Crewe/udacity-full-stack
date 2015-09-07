@@ -1,4 +1,5 @@
 # project.py
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database_setup import Base, Category, Item, User
@@ -15,10 +16,13 @@ import json
 import requests
 import random
 import string
+import datetime
+import PyRSS2Gen
 
 APPLICATION_NAME = "Item Catalog Application"
 CLIENT_ID = json.loads(
     open('client_secrets.json', 'r').read())['web']['client_id']
+HOST = "http://localhost:8000"
 
 app = Flask(__name__)
 engine = create_engine('sqlite:///itemcatalog.db')
@@ -27,19 +31,57 @@ DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
 
+# RSS feed for items
+@app.route('/catalog/rss.xml')
+def catalogRSS():
+    """Generates an RSS2.0 Feed for items in the catalog.
+
+    This could go two was, but I wan unsure about what would
+    perform better. 
+
+    A) Generating the RSS feed on the fly everytime you hit the
+       endpoint. Although I couldn't imagine it being much worse
+       than JSON, but it would if the file was sufficiently large.
+    B) Generate a file in the root after a new item is added to the
+       database, and then serve it via file read. Which I feel is
+       better of the two.
+
+    Currenly using A becasue folder/file permissions may affect people.
+    It's also easier :P
+    """
+
+    rss = generateRSS()
+    #with open("rss.xml", "r") as rss_file:
+    #    rss_feed = rss_file.read()
+    response = make_response(rss.to_xml(), 200)
+    response.headers['Content-Type'] = 'application/rss+xml'
+    return response
+
+
+# Some basic API JSON endpoints
 @app.route('/catalog.json')
 def catalogJSON():
-    categories = getCategories()
-    items = getAllItems()
-    data = set()
-
-    Catalog = [c.serialize for c in categories]
+    data = []
+    Catalog = [c.serialize for c in getCategories()]
     for cat in Catalog:
-        for item in items:
-            if item.category.name == cat['name']:
-                cat['items'] = item.serialize
-        print data
+        cat['items'] = [i.serialize for i in getItems(cat['name'])]
+        data.append(cat)
 
+    response = make_response(json.dumps(data, sort_keys=True, indent=2), 200)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+    return jsonify(Categories=[c.serialize for c in categories])
+
+
+@app.route('/catalog/items.json')
+def itemsJSON():
+    items = getAllItems()
+    return jsonify(Items=[i.serialize for i in items])
+
+
+@app.route('/catalog/categories.json')
+def categoriesJSON():
+    categories = getCategories()
     return jsonify(Categories=[c.serialize for c in categories])
 
 
@@ -52,7 +94,7 @@ def showLogin():
 
 @app.route('/catalog/gconnect', methods=['POST'])
 def googleConnect():
-      # Validate state token
+    # Validate state token
     if request.args.get('state') != login_session['state']:
         response = make_response(json.dumps('Invalid state parameter.'), 401)
         response.headers['Content-Type'] = 'application/json'
@@ -73,8 +115,8 @@ def googleConnect():
 
     # Check that the access token is valid.
     access_token = credentials.access_token
-    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
-           % access_token)
+    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={}'.
+           format(access_token))
     h = httplib2.Http()
     result = json.loads(h.request(url, 'GET')[1])
     # If there was an error in the access token info, abort.
@@ -98,11 +140,12 @@ def googleConnect():
         response.headers['Content-Type'] = 'application/json'
         return response
 
+    # See if the user is already logged in
     stored_credentials = login_session.get('credentials')
     stored_gplus_id = login_session.get('gplus_id')
     if stored_credentials is not None and gplus_id == stored_gplus_id:
-        response = make_response(json.dumps('Current user is already connected.'),
-                                 200)
+        response = make_response(
+            json.dumps('Current user is already connected.'), 200)
         response.headers['Content-Type'] = 'application/json'
         return response
 
@@ -135,7 +178,7 @@ def googleConnect():
     output += '<img src="'
     output += login_session['picture']
     output += ' " style = "width: 150px; height: 150px;border-radius: 75px;-webkit-border-radius: 75px;-moz-border-radius: 75px;"> '
-    flash("you are now logged in as %s" % login_session['username'])
+    flash("you are now logged in as {}".format(login_session['username']))
     print "done!"
     return output
 
@@ -143,7 +186,6 @@ def googleConnect():
 @app.route('/catalog/disconnect')
 def disconnect():
     # Reset the user's sesson.
-    print login_session
     if 'provider' in login_session:
         if login_session['provider'] == 'google':
             gdisconnect()
@@ -169,7 +211,7 @@ def gdisconnect():
         response.headers['Content-Type'] = 'application/json'
         return response
     access_token = credentials.access_token
-    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+    url = 'https://accounts.google.com/o/oauth2/revoke?token={}'.format(access_token)
     h = httplib2.Http()
     result = h.request(url, 'GET')[0]
     if result['status'] != '200':
@@ -231,15 +273,14 @@ def addItem(cat_name):
         try:
             # Keep things clean looking by always having some sort of image
             if request.form['item-pic']:
-                thumbnail_url = request.form['item-pic']
+                picture_url = request.form['item-pic']
             else:
-                thumbnail_url = 'http://placehold.it/173x195'
+                picture_url = 'http://placehold.it/173x195'
             if request.form['item-thumb']:
-                picture_url = request.form['item-thumb'] 
+                thumbnail_url = request.form['item-thumb'] 
             else:
-                picture_url = 'http://placehold.it/320x150'
+                thumbnail_url = 'http://placehold.it/320x150'
 
-            picture_url = 'http://placehold.it/173x195'
             newItem = Item(user_id=login_session['user_id'],
                            name=escape(request.form['item-name']),
                            price=escape(request.form['item-price']),
@@ -249,13 +290,19 @@ def addItem(cat_name):
                            description=escape(request.form['item-desc']))
             session.add(newItem)
             session.commit()
-            flash("Successfully added {0} to {1}!".format(newItem.name, category.name))
+            # Update the RSS Feed: SEE catalogRSS()
+            #generateRSS()
+            flash("Successfully added {0} to {1}!".format(newItem.name, 
+                                                          category.name))
             return redirect(url_for('showCategory', cat_name=category.name))
         except:
-            flash("Unable to add item to {0} category".format(category.name), 'error')
+            flash("Unable to add item to {0} category".
+                  format(category.name), 'error')
             return redirect(url_for('showCategory', cat_name=category.name))
     else:
-        return render_template('additem.html', category=category, categories=categories)
+        return render_template('additem.html', 
+                               category=category, 
+                               categories=categories)
 
 
 @app.route('/catalog/<cat_name>/<item_name>/edit', methods=['GET', 'POST'])
@@ -283,10 +330,13 @@ def editItem(cat_name, item_name):
         session.add(itemToEdit)
         session.commit()
         flash('{0} was successfully updated.'.format(itemToEdit.name))
-        return redirect(url_for('showCategory', cat_name=itemToEdit.category.name))
+        return redirect(url_for('showCategory', 
+                        cat_name=itemToEdit.category.name))
     else:
         categories = getCategories()
-        return render_template('edititem.html', item=itemToEdit, categories=categories)
+        return render_template('edititem.html', 
+                               item=itemToEdit, 
+                               categories=categories)
 
 
 @app.route('/catalog/<cat_name>/<item_name>/delete', methods=['GET', 'POST'])
@@ -319,10 +369,19 @@ def internal_error(error):
     return render_template('500.html'), 500
 
 
+# Various helper functions
 def getCategory(cat_name):
     try:
         category = session.query(Category).filter_by(name=cat_name).one()
         return category
+    except:
+        return []
+
+
+def getCategoryById(cat_id):
+    try:
+        cat_id = session.query(Category).filter_by(id=cat_id).one()
+        return cat_id
     except:
         return []
 
@@ -378,6 +437,27 @@ def getUserID(email):
         return user.id
     except:
         return None
+
+
+def generateRSS():
+    rss_items = []
+    items = getAllItems()
+    for i in items:
+        category = getCategoryById(i.category_id)
+        url = url_for('showItem', cat_name=category.name, item_name=i.name)
+        ri = PyRSS2Gen.RSSItem(title=i.name,
+                               link=HOST + url,
+                               description=i.description)
+        rss_items.append(ri)
+
+    rss = PyRSS2Gen.RSS2(
+    title = "Item Imporium's RSS Feed",
+    link = "{0}/catalog".format(HOST),
+    description = "The latest items from the Item Imporium ",
+    lastBuildDate = datetime.datetime.utcnow(),
+    items = rss_items)
+    #rss.write_xml(open("rss.xml", "w"))
+    return rss
 
 
 if __name__ == '__main__':
