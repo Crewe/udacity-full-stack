@@ -1,4 +1,5 @@
 # project.py
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database_setup import Base, Category, Item, User
@@ -231,13 +232,13 @@ def addItem(cat_name):
         try:
             # Keep things clean looking by always having some sort of image
             if request.form['item-pic']:
-                thumbnail_url = request.form['item-pic']
+                picture_url = request.form['item-pic']
             else:
-                thumbnail_url = 'http://placehold.it/173x195'
+                picture_url = 'http://placehold.it/173x195'
             if request.form['item-thumb']:
-                picture_url = request.form['item-thumb'] 
+                thumbnail_url = request.form['item-thumb'] 
             else:
-                picture_url = 'http://placehold.it/320x150'
+                thumbnail_url = 'http://placehold.it/320x150'
 
             picture_url = 'http://placehold.it/173x195'
             newItem = Item(user_id=login_session['user_id'],
