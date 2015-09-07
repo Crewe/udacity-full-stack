@@ -33,3 +33,10 @@ downgrade the follow packages by running the following:
 1. then run seed_database.py to add some items to the database
 1. Start up the webserver project.py
 1. navigate to http://localhost:8000
+
+API Routes:
+* http://localhost:8000/catalog/categories.json
+* http://localhost:8000/catalog/items.json
+
+RSS Feed:
+* http://localhost:8000/catalog/rss.xml
