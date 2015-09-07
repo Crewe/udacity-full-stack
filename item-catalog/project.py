@@ -28,6 +28,13 @@ DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
 
+# RSS feed for new items
+@app.route('/catalog/rss.xml')
+def catalogRSS():
+    return "Ok", 200
+
+
+# Some basic API JSON endpoints
 @app.route('/catalog.json')
 def catalogJSON():
     categories = getCategories()
@@ -42,6 +49,18 @@ def catalogJSON():
                 data
         print data
 
+    return jsonify(Categories=[c.serialize for c in categories])
+
+
+@app.route('/catalog/items.json')
+def itemsJSON():
+    items = getAllItems()
+    return jsonify(Items=[i.serialize for i in items])
+
+
+@app.route('/catalog/categories.json')
+def categoriesJSON():
+    categories = getCategories()
     return jsonify(Categories=[c.serialize for c in categories])
 
 
