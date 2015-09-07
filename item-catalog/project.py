@@ -16,10 +16,13 @@ import json
 import requests
 import random
 import string
+import datetime
+import PyRSS2Gen
 
 APPLICATION_NAME = "Item Catalog Application"
 CLIENT_ID = json.loads(
     open('client_secrets.json', 'r').read())['web']['client_id']
+HOST = "http://localhost:8000"
 
 app = Flask(__name__)
 engine = create_engine('sqlite:///itemcatalog.db')
@@ -28,10 +31,31 @@ DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
 
-# RSS feed for new items
+# RSS feed for items
 @app.route('/catalog/rss.xml')
 def catalogRSS():
-    return "Ok", 200
+    """Generates an RSS2.0 Feed for items in the catalog.
+
+    This could go two was, but I wan unsure about what would
+    perform better. 
+
+    A) Generating the RSS feed on the fly everytime you hit the
+       endpoint. Although I couldn't imagine it being much worse
+       than JSON, but it would if the file was sufficiently large.
+    B) Generate a file in the root after a new item is added to the
+       database, and then serve it via file read. Which I feel is
+       better of the two.
+
+    Currenly using A becasue folder/file permissions may affect people.
+    """
+
+    items = getAllItems()
+    rss = generateRSS(items)
+    #with open("rss.xml", "r") as rss_file:
+    #    rss_feed = rss_file.read()
+    response = make_response(rss.to_xml(), 200)
+    response.headers['Content-Type'] = 'application/rss+xml'
+    return response
 
 
 # Some basic API JSON endpoints
@@ -270,6 +294,8 @@ def addItem(cat_name):
                            description=escape(request.form['item-desc']))
             session.add(newItem)
             session.commit()
+            # Update the RSS Feed: SEE catalogRSS()
+            #generateRSS(getAllItems())
             flash("Successfully added {0} to {1}!".format(newItem.name, category.name))
             return redirect(url_for('showCategory', cat_name=category.name))
         except:
@@ -340,10 +366,19 @@ def internal_error(error):
     return render_template('500.html'), 500
 
 
+# Various helper functions
 def getCategory(cat_name):
     try:
         category = session.query(Category).filter_by(name=cat_name).one()
         return category
+    except:
+        return []
+
+
+def getCategoryById(cat_id):
+    try:
+        cat_id = session.query(Category).filter_by(id=cat_id).one()
+        return cat_id
     except:
         return []
 
@@ -399,6 +434,26 @@ def getUserID(email):
         return user.id
     except:
         return None
+
+
+def generateRSS(items):
+    rss_items = []
+    for i in items:
+        category = getCategoryById(i.category_id)
+        url = url_for('showItem', cat_name=category.name, item_name=i.name)
+        ri = PyRSS2Gen.RSSItem(title=i.name,
+                               link=HOST + url,
+                               description=i.description)
+        rss_items.append(ri)
+
+    rss = PyRSS2Gen.RSS2(
+    title = "Item Imporium's RSS Feed",
+    link = "{0}/catalog".format(HOST),
+    description = "The latest items from the Item Imporium ",
+    lastBuildDate = datetime.datetime.utcnow(),
+    items = rss_items)
+    #rss.write_xml(open("rss.xml", "w"))
+    return rss
 
 
 if __name__ == '__main__':
