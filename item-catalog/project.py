@@ -115,8 +115,8 @@ def googleConnect():
 
     # Check that the access token is valid.
     access_token = credentials.access_token
-    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
-           % access_token)
+    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={}'.
+           format(access_token))
     h = httplib2.Http()
     result = json.loads(h.request(url, 'GET')[1])
     # If there was an error in the access token info, abort.
@@ -140,11 +140,12 @@ def googleConnect():
         response.headers['Content-Type'] = 'application/json'
         return response
 
+    # See if the user is already logged in
     stored_credentials = login_session.get('credentials')
     stored_gplus_id = login_session.get('gplus_id')
     if stored_credentials is not None and gplus_id == stored_gplus_id:
-        response = make_response(json.dumps('Current user is already connected.'),
-                                 200)
+        response = make_response(
+            json.dumps('Current user is already connected.'), 200)
         response.headers['Content-Type'] = 'application/json'
         return response
 
@@ -177,7 +178,7 @@ def googleConnect():
     output += '<img src="'
     output += login_session['picture']
     output += ' " style = "width: 150px; height: 150px;border-radius: 75px;-webkit-border-radius: 75px;-moz-border-radius: 75px;"> '
-    flash("you are now logged in as %s" % login_session['username'])
+    flash("you are now logged in as {}".format(login_session['username']))
     print "done!"
     return output
 
@@ -185,7 +186,6 @@ def googleConnect():
 @app.route('/catalog/disconnect')
 def disconnect():
     # Reset the user's sesson.
-    print login_session
     if 'provider' in login_session:
         if login_session['provider'] == 'google':
             gdisconnect()
@@ -211,7 +211,7 @@ def gdisconnect():
         response.headers['Content-Type'] = 'application/json'
         return response
     access_token = credentials.access_token
-    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+    url = 'https://accounts.google.com/o/oauth2/revoke?token={}'.format(access_token)
     h = httplib2.Http()
     result = h.request(url, 'GET')[0]
     if result['status'] != '200':
@@ -281,7 +281,6 @@ def addItem(cat_name):
             else:
                 thumbnail_url = 'http://placehold.it/320x150'
 
-            picture_url = 'http://placehold.it/173x195'
             newItem = Item(user_id=login_session['user_id'],
                            name=escape(request.form['item-name']),
                            price=escape(request.form['item-price']),
@@ -293,13 +292,17 @@ def addItem(cat_name):
             session.commit()
             # Update the RSS Feed: SEE catalogRSS()
             #generateRSS()
-            flash("Successfully added {0} to {1}!".format(newItem.name, category.name))
+            flash("Successfully added {0} to {1}!".format(newItem.name, 
+                                                          category.name))
             return redirect(url_for('showCategory', cat_name=category.name))
         except:
-            flash("Unable to add item to {0} category".format(category.name), 'error')
+            flash("Unable to add item to {0} category".
+                  format(category.name), 'error')
             return redirect(url_for('showCategory', cat_name=category.name))
     else:
-        return render_template('additem.html', category=category, categories=categories)
+        return render_template('additem.html', 
+                               category=category, 
+                               categories=categories)
 
 
 @app.route('/catalog/<cat_name>/<item_name>/edit', methods=['GET', 'POST'])
@@ -327,10 +330,13 @@ def editItem(cat_name, item_name):
         session.add(itemToEdit)
         session.commit()
         flash('{0} was successfully updated.'.format(itemToEdit.name))
-        return redirect(url_for('showCategory', cat_name=itemToEdit.category.name))
+        return redirect(url_for('showCategory', 
+                        cat_name=itemToEdit.category.name))
     else:
         categories = getCategories()
-        return render_template('edititem.html', item=itemToEdit, categories=categories)
+        return render_template('edititem.html', 
+                               item=itemToEdit, 
+                               categories=categories)
 
 
 @app.route('/catalog/<cat_name>/<item_name>/delete', methods=['GET', 'POST'])
