@@ -29,7 +29,7 @@ session = DBSession()
 
 @app.route('/catalog.json')
 def catalogJSON():
-    catalog=[]
+    return jsonify(Catalog=serializeCatalog())
     categories = getCategories()
     return jsonify(Categories=[c.serialize for c in categories])
 
@@ -52,7 +52,7 @@ def showCategory(cat_name):
     # Show the items within a category
     category = getCategory(cat_name)
     if not category:
-        return redirect('page_not_found')
+        return redirect('NotFound')
 
     items = getItems(cat_name)
     categories = getCategories()
@@ -67,19 +67,89 @@ def showItem(cat_name, item_name):
     # Show the detalis about an item
     item = getItem(item_name)
     if not item:
-        return redirect('page_not_found')
+        return redirect('NotFound')
         
     return render_template('item.html', item=item)
 
 
+@app.route('/catalog/<cat_name>/item/add', methods=['GET', 'POST'])
+def addItem(cat_name):
+    category = getCategory(cat_name)
+    categories = getCategories()
+    if not category:
+        return redirect('NotFound')
+    if request.method == 'POST':
+        try:
+            print request
+            print request.form
+            newItem = Item(user_id=1,
+                           name=escape(request.form['item-name']),
+                           price=escape(request.form['item-price']),
+                           thumbnail=escape(request.form['item-thumb']),
+                           picture=escape(request.form['item-pic']),
+                           category_id=request.form['item-cat'],
+                           description=escape(request.form['item-desc']))
+            session.add(newItem)
+            session.commit()
+            flash("Successfully added {0} to {1}!".format(newItem.name, category.name))
+            return redirect(url_for('showCategory', cat_name=category.name))
+        except:
+            flash("Unable to add item to {0} category".format(category.name), 'error')
+            return redirect(url_for('showCategory', cat_name=category.name))
+    else:
+        return render_template('additem.html', category=category, categories=categories)
+
+
+@app.route('/catalog/<cat_name>/<item_name>/edit', methods=['GET', 'POST'])
+def editItem(cat_name, item_name):
+    itemToEdit = getItem(item_name)
+    if request.method == 'POST':
+        if request.form['item-name']:
+            itemToEdit.name = escape(request.form['item-name'])
+        if request.form['item-price']:
+            itemToEdit.price = escape(request.form['item-price'])
+        if request.form['item-thumb']:
+            itemToEdit.thumbnail = escape(request.form['item-thumb'])
+        if request.form['item-pic']:
+            itemToEdit.picture = escape(request.form['item-pic'])
+        if request.form['item-cat']:
+            itemToEdit.category_id = request.form['item-cat']
+        if request.form['item-desc']:
+            itemToEdit.description = escape(request.form['item-desc'])
+        session.add(itemToEdit)
+        session.commit()
+        flash('{0} was successfully updated.'.format(itemToEdit.name))
+        return redirect(url_for('showCategory', cat_name=itemToEdit.category.name))
+    else:
+        categories = getCategories()
+        return render_template('edititem.html', item=itemToEdit, categories=categories)
+
+
+@app.route('/catalog/<cat_name>/<item_name>/delete', methods=['GET', 'POST'])
+def deleteItem(cat_name, item_name):
+    itemToDelete = getItem(item_name)
+    if request.method == 'POST':
+        session.delete(itemToDelete)
+        session.commit
+        flash("Item successfully deleted.")
+        return redirect(url_for('showCategory', cat_name=cat_name))
+    else:
+        return render_template('deleteitem.html', item=itemToDelete)
+
+
 # Error handling routes
+@app.errorhandler(400)
+def NotFound(error):
+    return render_template('400.html', message=error), 400
+
+
 @app.errorhandler(404)
-def page_not_found(error):
-    return render_template('404.html'), 404
+def NotFound(error):
+    return render_template('404.html', message=error), 404
 
 
 @app.errorhandler(500)
-def page_not_found(error):
+def internal_error(error):
     return render_template('500.html'), 500
 
 
@@ -119,6 +189,10 @@ def getItem(item_name):
         return item
     except:
         return []
+
+
+def serializeCatalog():
+    return {'nothing' : 'go away'}
 
 
 if __name__ == '__main__':

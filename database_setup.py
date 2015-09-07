@@ -55,6 +55,7 @@ class Item(Base):
     name = Column(String(80), nullable=False, unique=True)
     description = Column(String(250))
     price = Column(String(8))
+    thumbnail = Column(String(250))
     picture = Column(String(250))
     category_id = Column(Integer, ForeignKey('category.id'))
     user_id = Column(Integer, ForeignKey('user.id'))

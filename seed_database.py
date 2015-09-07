@@ -60,7 +60,8 @@ item1 = Item(user_id=1,
              name='Felt Bicycle',
              description='Felt F65X Cylclocross Bicycle.',
              price='$2048.32',
-             picture='http://placehold.it/320x150')
+             thumbnail='http://placehold.it/320x150',
+             picture='http://placehold.it/320x320')
 session.add(item1)
 session.commit()
 print "Item {0} added.".format(item1.name)
@@ -70,7 +71,8 @@ item2 = Item(user_id=1,
              name='Newport Propane Fireplace',
              description='Keep a small space nice and cozy warm with this 4500BTU/hr fireplace.',
              price='$650.78',
-             picture='http://placehold.it/320x150')
+             thumbnail='http://placehold.it/320x150',
+             picture='http://placehold.it/320x320')
 session.add(item2)
 session.commit()
 print "Item {0} added.".format(item2.name)
@@ -80,7 +82,8 @@ item3 = Item(user_id=1,
              name='Technics SL1200 Turntable',
              description='Get the wax spinnin\' and music groovin\'',
              price='$175.87',
-             picture='http://placehold.it/320x150')
+             thumbnail='http://placehold.it/320x150',
+             picture='http://placehold.it/320x320')
 session.add(item3)
 session.commit()
 print "Item {0} added.".format(item3.name)
@@ -90,7 +93,8 @@ item4 = Item(user_id=1,
              name='Thinking, Fast and Slow',
              description='By Daniel E. Kahneman',
              price='$9.99',
-             picture='http://placehold.it/320x150')
+             thumbnail='http://placehold.it/320x150',
+             picture='http://placehold.it/320x320')
 session.add(item4)
 session.commit()
 print "Item {0} added.".format(item4.name)
@@ -100,7 +104,8 @@ item5 = Item(user_id=1,
              name='The Power of Habbit',
              description='Why We Do What We Do in Life and Business. By Charles Duhigg',
              price='$29.99',
-             picture='http://placehold.it/320x150')
+             thumbnail='http://placehold.it/320x150',
+             picture='http://placehold.it/320x320')
 session.add(item5)
 session.commit()
 print "Item {0} added.".format(item5.name)
@@ -110,7 +115,8 @@ item6 = Item(user_id=1,
              name='The Stanley Parable',
              description='The Stanley Parable is an interactive story modification built on the Source game engine, designed by Davey Wreden, and released in July 2011',
              price='14.99',
-             picture='http://placehold.it/320x150')
+             thumbnail='http://placehold.it/320x150',
+             picture='http://placehold.it/320x320')
 session.add(item6)
 session.commit()
 print "Item {0} added.".format(item6.name)
@@ -120,7 +126,8 @@ item7 = Item(user_id=1,
              name='Tiny House by Small Footprint',
              description='A made to order 20 square-meter tiny house on a 2 axel square tube steel trailer. Just add yourself.',
              price='$48324.32',
-             picture='http://placehold.it/320x150')
+             thumbnail='http://placehold.it/320x150',
+             picture='http://placehold.it/320x320')
 session.add(item7)
 session.commit()
 print "Item {0} added.".format(item7.name)
