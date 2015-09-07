@@ -79,23 +79,23 @@ def addItem(cat_name):
     if not category:
         return redirect('NotFound')
     if request.method == 'POST':
-        #try:
-        print request
-        print request.form
-        newItem = Item(user_id=1,
-                       name=escape(request.form['inputName']),
-                       price=escape(request.form['inputPrice']),
-                       thumbnail=escape(request.form['inputThumbnail']),
-                       picture=escape(request.form['inputPicture']),
-                       category_id=request.form['inputCategory'],
-                       description=escape(request.form['textDescription']))
-        session.add(newItem)
-        session.commit()
-        flash("Successfully added {0} to {0}!".format(newItem.name, category.name))
-        return redirect(url_for('showCategory', cat_name=category.name))
-        #except:
-        flash("Unable to add item to {0}".format(category.name), 'error')
-        return redirect(url_for('showCategory', cat_name=category.name))
+        try:
+            print request
+            print request.form
+            newItem = Item(user_id=1,
+                           name=escape(request.form['item-name']),
+                           price=escape(request.form['item-price']),
+                           thumbnail=escape(request.form['item-thumb']),
+                           picture=escape(request.form['item-pic']),
+                           category_id=request.form['item-cat'],
+                           description=escape(request.form['item-desc']))
+            session.add(newItem)
+            session.commit()
+            flash("Successfully added {0} to {1}!".format(newItem.name, category.name))
+            return redirect(url_for('showCategory', cat_name=category.name))
+        except:
+            flash("Unable to add item to {0} category".format(category.name), 'error')
+            return redirect(url_for('showCategory', cat_name=category.name))
     else:
         return render_template('additem.html', category=category, categories=categories)
 
@@ -104,23 +104,21 @@ def addItem(cat_name):
 def editItem(cat_name, item_name):
     itemToEdit = getItem(item_name)
     if request.method == 'POST':
-
-        #if request.form['inputName']:
-        #    itemToEdit.name = escape(request.form['inputName'])
-        #if request.form['inputPrice']:
-        #    itemToEdit.price = request.form['inputPrice']
-        #if request.form['inputThumbnail']:
-        #    itemToEdit.picture = escape(request.form['inputThumbnail'])
-        #if request.form['inputPicture']:
-        #    itemToEdit.picture = escape(request.form['inputPicture'])
-        #if request.form['inputCategory']:
-        #    itemToEdit.category_id = request.form['inputCategory']
-        #if request.form['textDescription']:
-        #    itemToEdit.description = escape(request.form['textDescription'])
+        if request.form['item-name']:
+            itemToEdit.name = escape(request.form['item-name'])
+        if request.form['item-price']:
+            itemToEdit.price = escape(request.form['item-price'])
+        if request.form['item-thumb']:
+            itemToEdit.thumbnail = escape(request.form['item-thumb'])
+        if request.form['item-pic']:
+            itemToEdit.picture = escape(request.form['item-pic'])
+        if request.form['item-cat']:
+            itemToEdit.category_id = request.form['item-cat']
+        if request.form['item-desc']:
+            itemToEdit.description = escape(request.form['item-desc'])
         session.add(itemToEdit)
         session.commit()
-        
-        flash('{0} successfully updated.'.format(itemToEdit.name))
+        flash('{0} was successfully updated.'.format(itemToEdit.name))
         return redirect(url_for('showCategory', cat_name=itemToEdit.category.name))
     else:
         categories = getCategories()

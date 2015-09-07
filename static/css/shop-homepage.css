@@ -56,3 +56,7 @@ footer {
 .bottomless {
     margin-bottom: 0px;
 }
+
+.caption p {
+    text-overflow: ellipsis;
+}

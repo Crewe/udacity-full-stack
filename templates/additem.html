@@ -24,35 +24,35 @@
                         <div class="form-group">
                           <label for="inputName" class="col-lg-2 control-label">Name</label>
                           <div class="col-lg-10">
-                            <input class="form-control" id="inputName" type="text">
+                            <input class="form-control" id="inputName" type="text" name="item-name">
                           </div>
                         </div>
 
                         <div class="form-group">
                           <label for="inputPrice" class="col-lg-2 control-label">Price</label>
                           <div class="col-lg-10">
-                            <input class="form-control" id="inputPrice" type="text">
+                            <input class="form-control" id="inputPrice" type="text" name="item-price">
                           </div>
                         </div>
 
                         <div class="form-group">
                           <label for="inputThumbnail" class="col-lg-2 control-label">Thumbnail URL [320x150]</label>
                           <div class="col-lg-10">
-                            <input class="form-control" id="inputThumbnail" type="text">
+                            <input class="form-control" id="inputThumbnail" type="text" name="item-thumb">
                           </div>
                         </div>
 
                         <div class="form-group">
                           <label for="inputPicture" class="col-lg-2 control-label">Picture URL [320x320]</label>
                           <div class="col-lg-10">
-                            <input class="form-control" id="inputPicture" type="text">
+                            <input class="form-control" id="inputPicture" type="text" name="item-pic">
                           </div>
                         </div>
 
                         <div class="form-group">
                           <label for="inputCategory" class="col-lg-2 control-label">Category</label>
                           <div class="col-lg-10">
-                            <select class="form-control" id="inputCategory">
+                            <select class="form-control" id="inputCategory" name="item-cat">
                               {% for category in categories %}
                               <option value="{{category.id}}">{{category.name}}</option>
                               {% endfor %}
@@ -63,7 +63,7 @@
                         <div class="form-group">
                           <label for="textDescription" class="col-lg-2 control-label">Description</label>
                           <div class="col-lg-10">
-                            <textarea class="form-control" rows="3" id="textDescription"></textarea>
+                            <textarea class="form-control" rows="3" id="textDescription" name="item-desc"></textarea>
                             <span class="help-block">250 characters max.</span>
                           </div>
                         </div>
@@ -72,7 +72,7 @@
                           <div class="col-lg-8 col-lg-offset-4">
                             <a href="{{url_for('showCategory', cat_name=category.name)}}" class="btn btn-default">
                                 Cancel</a>
-                                <button type="submit" class="btn btn-success">Add</button>
+                                <button type="submit" class="btn btn-success" name="action">Add</button>
                             </div>
                         </div>
                         </fieldset>

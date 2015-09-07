@@ -35,11 +35,11 @@
                     {% for item in items %}
                     <div class="col-lg-4 col-md-4">
                         <div class="thumbnail">
-                            <img src="{{item.picture}}" alt="">
+                            <img src="{{item.thumbnail}}" alt="">
                             <div class="caption">
                                 <h4><a href="{{url_for('showItem', cat_name=item.category.name, item_name=item.name)}}">
                                 {{item.name}}</a></h4>
-                                <p>{{item.description[:60]}} ...</p>
+                                <p>{{item.description[:120]}} ...</p>
                                 <p class="pull-right">{{item.price}}</p>
                             </div>
                         </div>
