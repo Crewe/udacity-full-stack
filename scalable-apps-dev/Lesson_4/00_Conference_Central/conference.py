@@ -204,6 +204,7 @@ class ConferenceApi(remote.Service):
         """Create new conference."""
         return self._createConferenceObject(request)
 
+
     @endpoints.method(ConferenceQueryForms, ConferenceForms,
             path='queryConferences',
             http_method='POST',
@@ -216,6 +217,65 @@ class ConferenceApi(remote.Service):
         return ConferenceForms(
             items=[self._copyConferenceToForm(conf, "") \
             for conf in conferences]
+        )
+
+
+    @endpoints.method(message_types.VoidMessage, ConferenceForms,
+        path='getConferencesCreated',
+        http_method='POST', name='getConferencesCreated')
+    def getConferencesCreated(self, request):
+        """Return conferences created by user."""
+        # make sure user is authed
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        # make profile key
+        p_key = ndb.Key(Profile, getUserId(user))
+        # create ancestor query for this user
+        conferences = Conference.query(ancestor=p_key)
+        # get the user profile and display name
+        prof = p_key.get()
+        displayName = getattr(prof, 'displayName')
+        # return set of ConferenceForm objects per Conference
+        return ConferenceForms(
+            items=[self._copyConferenceToForm(conf, displayName) for conf in conferences]
+        )
+
+
+    @endpoints.method(message_types.VoidMessage, ConferenceForms,
+            path='filterPlayground',
+            http_method='GET', name='filterPlayground')
+    def filterPlayground(self, request):
+        q = Conference.query()
+        # simple filter usage:
+        #q = q.filter(Conference.city == "London")
+
+        # advanced filter building and usage
+        #field = "topic"
+        #operator = "="
+        #value = "Medical Innovations"
+        #f = ndb.query.FilterNode(field, operator, value)
+        #f2 = ndb.query.FilterNode("city", "=", "London")
+        #q = q.filter(f)
+        #q = q.filter(f2)
+
+        # TODO
+        # add 2 filters:
+        # 1: city equals to London
+        f = ["city","=","London"]
+        londonFilter = ndb.query.FilterNode(f[0], f[1], f[2])
+        # 2: topic equals "Medical Innovations"
+        f = ["topics","=","Medical Innovations"]
+        innovationFilter = ndb.query.FilterNode(f[0], f[1], f[2])
+        
+        q = q.filter(londonFilter)
+        q = q.filter(innovationFilter)
+        q = q.filter(Conference.maxAttendees > 10)
+        q = q.order(Conference.name)
+
+        return ConferenceForms(
+            items=[self._copyConferenceToForm(conf, "") for conf in q]
         )
 
 # registers API
