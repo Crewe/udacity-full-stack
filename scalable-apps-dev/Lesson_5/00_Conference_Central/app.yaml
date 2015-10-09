@@ -38,6 +38,14 @@ handlers:       # static then dynamic
   script: main.app
   login: admin
 
+- url: /tasks/send_confirmation_email
+  script: main.app
+  login: admin
+
+# available at /_ah/stats/
+builtins:
+- appstats: on
+
 libraries:
 
 - name: webapp2
