@@ -107,3 +107,30 @@ class ConferenceQueryForms(messages.Message):
 class StringMessage(messages.Message):
     """StringMessage-- outbound (single) string message"""
     message = messages.StringField(1, required=True)
+
+class TypeOfSession(messages.Enum):
+    """TypeOfSession -- Types of sessions a conference can have."""
+    NOT_SPECIFIED = 1
+    WORKSHOP = 2
+    LECTURE = 3
+
+class Session(ndb.Model):
+    """Session -- Session object"""
+    name            = ndb.StringProperty(required=True)
+    highlights      = ndb.StringProperty()
+    speakers        = ndb.StringProperty(repeated=True)
+    duration        = ndb.IntegerProperty()
+    typeOfSession   = ndb.IntegerPorperty(default='NOT_SPECIFIED')
+    date            = ndb.DateProperty()
+    startTime       = ndb.TimePorperty()
+    conferenceKey   = ndb.StringProperty(required=True)
+
+class SessionForm(messages.Message):
+    """SessionForm -- Session form messaging."""
+    name            = messages.StringField(1, required=True)
+    highlights      = messages.StringField(2)
+    speakers        = messages.StringField(3, repeated=True)
+    duration        = messages.IntegerField(4)
+    typeOfSession   = messages.EnumField('TypeOfSession', 5)
+    date            = messages.StringField(6)
+    startTime       = messages.StringField(7)
