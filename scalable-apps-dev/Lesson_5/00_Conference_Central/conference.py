@@ -36,6 +36,9 @@ from models import ConferenceQueryForm
 from models import ConferenceQueryForms
 from models import TeeShirtSize
 from models import StringMessage
+from models import Session
+from models import SessionForm
+from models import TypeOfSession
 
 from utils import getUserId
 
@@ -530,5 +533,29 @@ class ConferenceApi(remote.Service):
             announcement = ""
         return StringMessage(message=announcement)
 
+
+# - - - Sessions - - - - - - - - - - - - - - - - - - - -
+
+    def _createSessionObject(request):
+        # preload necessary data items
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+        if not request.name:
+            raise endpoints.BadRequestException("Session 'name' field required")
+        if not request.conferenceKey:
+            raise endpoints.BadRequestException(
+                  "Session 'conferenceKey' field required")
+
+
+    @endpoints.method(SessionForm, SessionForm, 
+                      path='session',
+                      http_method='POST', 
+                      name='createSession')
+    def createSession(self, request):
+        """Create new session in a conference."""
+        return self._createSessionObject(request)
 
 api = endpoints.api_server([ConferenceApi]) # register API

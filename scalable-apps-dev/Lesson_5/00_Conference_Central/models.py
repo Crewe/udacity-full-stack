@@ -113,6 +113,7 @@ class TypeOfSession(messages.Enum):
     NOT_SPECIFIED = 1
     WORKSHOP = 2
     LECTURE = 3
+    KEYNOTE = 4
 
 class Session(ndb.Model):
     """Session -- Session object"""
