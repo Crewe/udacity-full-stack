@@ -536,7 +536,7 @@ class ConferenceApi(remote.Service):
 
 # - - - Sessions - - - - - - - - - - - - - - - - - - - -
 
-    def _createSessionObject(request):
+    def _createSessionObject(self, request):
         # preload necessary data items
         user = endpoints.get_current_user()
         if not user:
@@ -545,17 +545,27 @@ class ConferenceApi(remote.Service):
 
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
+        
         if not request.conferenceKey:
             raise endpoints.BadRequestException(
                   "Session 'conferenceKey' field required")
 
+        # copy ConferenceForm/ProtoRPC Message into dict
+        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
 
-    @endpoints.method(SessionForm, SessionForm, 
-                      path='session',
+        # convert dates from strings to Time objects
+        if data['startTime']:
+            data['startTime'] = datetime.strptime(data['startTime'][10:], 
+                                                  "%H-%M-%S").time()
+
+
+    @endpoints.method(SESS_POST_REQUEST, SessionForm, 
+                      path='session/{websafeConferenceKey}',
                       http_method='POST', 
                       name='createSession')
     def createSession(self, request):
         """Create new session in a conference."""
         return self._createSessionObject(request)
+
 
 api = endpoints.api_server([ConferenceApi]) # register API
