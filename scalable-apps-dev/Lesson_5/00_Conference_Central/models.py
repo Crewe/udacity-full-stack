@@ -134,4 +134,4 @@ class SessionForm(messages.Message):
     typeOfSession   = messages.EnumField('TypeOfSession', 5)
     date            = messages.StringField(6)
     startTime       = messages.StringField(7)
-    conferenceKey   = messages.StringField(8, required=True)
+    conferenceKey   = messages.StringField(8)

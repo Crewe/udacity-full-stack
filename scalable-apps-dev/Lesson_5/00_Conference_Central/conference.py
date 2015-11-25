@@ -555,16 +555,20 @@ class ConferenceApi(remote.Service):
 
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
-        
-        if not request.conferenceKey:
-            raise endpoints.BadRequestException(
-                  "Session 'conferenceKey' field required")
+
+        # generate Profile Key based on user ID and Conference
+        # ID based on Profile key get Conference key from ID
+        p_key = ndb.Key(Profile, user_id)
+        c_id = Conference.allocate_ids(size=1, parent=p_key)[0]
+        c_key = ndb.Key(Conference, c_id, parent=p_key)
+
 
         session = Session(
             name="TestName",
             speakers="TestSpeaker"
             )
-        sess_key = session.Put()
+
+        s_key = session.Put()
 
         return session
 
