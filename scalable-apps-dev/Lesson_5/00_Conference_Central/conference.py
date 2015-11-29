@@ -554,8 +554,11 @@ class ConferenceApi(remote.Service):
                 if field.name == 'typeOfSession':
                     setattr(sf, field.name, 
                         getattr(TypeOfSession, getattr(sess, field.name)))
+                elif field.name in ('startTime', 'date'):
+                    setattr(sf, field.name, str(getattr(sess, field.name)))
                 else:
                     setattr(sf, field.name, getattr(sess, field.name))
+
         sf.check_initialized()
         return sf
 
@@ -590,14 +593,19 @@ class ConferenceApi(remote.Service):
         s_id = Session.allocate_ids(size=1, parent=c_key)[0]
         s_key = ndb.Key(Session, request.name, parent=c_key)
 
-        # if s_key in :
-        #    raise endpoints.ConflictException("A session with this name already exists for this conference.")
+        session = Session(key=s_key)
+        
+        for field in request.all_fields():
+            data = getattr(request, field.name)
+            if data not in (None, []):
+                if field.name == 'startTime':
+                    data = datetime.strptime(data, "%H:%M").time()
+                if field.name == 'date':
+                    data = datetime.strptime(data, "%Y-%m-%d").date()
+                if field.name == 'typeOfSession':
+                    data = str(data)
 
-        session = Session(
-            key=s_key,
-            name=request.name,
-            speakers=request.speakers
-            )
+                setattr(session, field.name, data)
 
         session.put()
 
