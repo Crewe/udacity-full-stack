@@ -93,6 +93,12 @@ SESS_POST_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1),
 )
 
+SESS_TYPE_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeConferenceKey=messages.StringField(1),
+    typeOfSession=messages.StringField(2)
+)
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -633,6 +639,26 @@ class ConferenceApi(remote.Service):
         user_id =  getUserId(user)
 
         sessions = Session.query(ancestor=ndb.Key(urlsafe=request.websafeConferenceKey))
+        return SessionForms(
+            sessions = [self._copySessionToForm(sesh) for sesh in sessions]
+            )
+
+
+    @endpoints.method(SESS_TYPE_GET_REQUEST, SessionForms,
+        path='getConferenceSessionsByType/{websafeConferenceKey}',
+        http_method='GET',
+        name='getConferenceSessionsByType')
+    def getConferenceSessionsByType(self, request):
+        """Return sessions in a conference of a certain type."""
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id =  getUserId(user)
+
+        sessions = Session.query(
+            ancestor=ndb.Key(urlsafe=request.websafeConferenceKey)
+        ).filter(Session.typeOfSession == request.typeOfSession)
+
         return SessionForms(
             sessions = [self._copySessionToForm(sesh) for sesh in sessions]
             )
