@@ -121,7 +121,7 @@ class Session(ndb.Model):
     highlights      = ndb.StringProperty()
     speakers        = ndb.StringProperty(repeated=True)
     duration        = ndb.IntegerProperty()
-    typeOfSession   = ndb.IntegerProperty(default='NOT_SPECIFIED')
+    typeOfSession   = ndb.StringProperty(default='NOT_SPECIFIED')
     date            = ndb.DateProperty()
     startTime       = ndb.TimeProperty()
     

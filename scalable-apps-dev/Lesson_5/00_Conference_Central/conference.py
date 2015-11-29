@@ -546,6 +546,20 @@ class ConferenceApi(remote.Service):
 
 # - - - Sessions - - - - - - - - - - - - - - - - - - - -
 
+    def _copySessionToForm(self, sess):
+        """Copy fileds from the Session to the SessionForm."""
+        sf = SessionForm()
+        for field in sf.all_fields():
+            if hasattr(sess, field.name):
+                if field.name == 'typeOfSession':
+                    setattr(sf, field.name, 
+                        getattr(TypeOfSession, getattr(sess, field.name)))
+                else:
+                    setattr(sf, field.name, getattr(sess, field.name))
+        sf.check_initialized()
+        return sf
+
+
     def _createSession(self, request):
         # preload necessary data items
         user = endpoints.get_current_user()
@@ -553,24 +567,41 @@ class ConferenceApi(remote.Service):
             raise endpoints.UnauthorizedException('Authorization required')
         user_id = getUserId(user)
 
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        # check that conference exists
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: %s' % request.websafeConferenceKey)
+
+        # check that user is owner
+        if user_id != conf.organizerUserId:
+            raise endpoints.ForbiddenException(
+                'Only the owner can add a session to the conference.')
+
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
 
-        # generate Profile Key based on user ID and Conference
-        # ID based on Profile key get Conference key from ID
-        p_key = ndb.Key(Profile, user_id)
-        c_id = Conference.allocate_ids(size=1, parent=p_key)[0]
-        c_key = ndb.Key(Conference, c_id, parent=p_key)
+        if not request.speakers:
+            raise endpoints.BadRequestException("Session 'speakers' field required")
 
+        # generate Session Key based on conference key,
+        # session id, and session name.
+        c_key = ndb.Key(urlsafe=request.websafeConferenceKey)
+        s_id = Session.allocate_ids(size=1, parent=c_key)[0]
+        s_key = ndb.Key(Session, request.name, parent=c_key)
+
+        # if s_key in :
+        #    raise endpoints.ConflictException("A session with this name already exists for this conference.")
 
         session = Session(
-            name="TestName",
-            speakers="TestSpeaker"
+            key=s_key,
+            name=request.name,
+            speakers=request.speakers
             )
 
-        s_key = session.Put()
+        session.put()
 
-        return session
+        return self._copySessionToForm(session)
 
 
     @endpoints.method(SESS_POST_REQUEST, SessionForm, 
