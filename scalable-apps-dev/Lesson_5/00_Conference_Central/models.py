@@ -135,3 +135,8 @@ class SessionForm(messages.Message):
     date            = messages.StringField(6)
     startTime       = messages.StringField(7)
     conferenceKey   = messages.StringField(8)
+
+class SessionForms(messages.Message):
+    """SessionForms -- multiple SessionForm"""
+    sessions = messages.MessageField(SessionForm, 1, repeated=True)
+
