@@ -733,4 +733,32 @@ class ConferenceApi(remote.Service):
         return self._copyProfileToForm(profile)
 
 
+    @endpoints.method(CONF_GET_REQUEST, SessionForms,
+        path='getSessionsInWishlist/{websafeConferenceKey}',
+        http_method='GET',
+        name='getSessionsInWishlist')
+    def getSessionsInWishlist(self, request):
+        """Get the sessions that are in the users wishlist."""
+        wsck = request.websafeConferenceKey
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        
+        # Get the profile
+        user_id = getUserId(user)
+        profile = ndb.Key(Profile, user_id).get()
+
+        sessions = [ndb.Key(urlsafe=wssk).get() for wssk in profile.sessionWishlist]
+        #sessions = []
+        #seshs = Session.query(ancestor=ndb.Key(urlsafe=wsck))
+        #for session in seshs:
+        #    s_key = session.key.urlsafe()
+        #    if s_key in prof.sessionWishlist:
+        #        sessions.append(session)
+
+        return SessionForms(
+            sessions = [self._copySessionToForm(sesh) for sesh in sessions]
+            )
+
+
 api = endpoints.api_server([ConferenceApi]) # register API
