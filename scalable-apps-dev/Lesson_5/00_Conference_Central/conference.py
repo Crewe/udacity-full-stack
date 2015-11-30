@@ -653,7 +653,6 @@ class ConferenceApi(remote.Service):
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
-        user_id =  getUserId(user)
 
         sessions = Session.query(
             ancestor=ndb.Key(urlsafe=request.websafeConferenceKey)
@@ -662,6 +661,22 @@ class ConferenceApi(remote.Service):
         return SessionForms(
             sessions = [self._copySessionToForm(sesh) for sesh in sessions]
             )
+
+
+    @endpoints.method(StringMessage, SessionForms,
+        path='getSessionsBySpeaker',
+        http_method='GET',
+        name='getSessionsBySpeaker')
+    def getSessionsBySpeaker(self, request):
+        """Get sessions by a speaker accross all conferences."""
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        sessions = Session.query().filter(Session.speakers == request.message)
+        return SessionForms(
+            sessions = [self._copySessionToForm(sesh) for sesh in sessions]
+            )        
 
 
 api = endpoints.api_server([ConferenceApi]) # register API
