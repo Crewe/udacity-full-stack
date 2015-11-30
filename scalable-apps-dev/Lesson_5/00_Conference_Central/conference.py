@@ -99,6 +99,11 @@ SESS_TYPE_GET_REQUEST = endpoints.ResourceContainer(
     typeOfSession=messages.StringField(2)
 )
 
+SESS_WISH_POST_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeSessionKey=messages.StringField(1)
+)
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -459,6 +464,12 @@ class ConferenceApi(remote.Service):
 
                 # unregister user, add back one seat
                 prof.conferenceKeysToAttend.remove(wsck)
+                # remove sessions from wishlist
+                seshs = Session.query(ancestor=ndb.Key(urlsafe=wsck))                
+                for session in seshs:
+                    s_key = session.key.urlsafe()
+                    if s_key in prof.sessionWishlist:
+                        prof.sessionWishlist.remove(s_key)
                 conf.seatsAvailable += 1
                 retval = True
             else:
@@ -564,7 +575,9 @@ class ConferenceApi(remote.Service):
                     setattr(sf, field.name, str(getattr(sess, field.name)))
                 else:
                     setattr(sf, field.name, getattr(sess, field.name))
-
+            elif field.name == 'websafeKey':
+                setattr(sf, field.name, sess.key.urlsafe())
+        
         sf.check_initialized()
         return sf
 
@@ -636,7 +649,6 @@ class ConferenceApi(remote.Service):
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
-        user_id =  getUserId(user)
 
         sessions = Session.query(ancestor=ndb.Key(urlsafe=request.websafeConferenceKey))
         return SessionForms(
@@ -654,6 +666,7 @@ class ConferenceApi(remote.Service):
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
 
+        # Filter sessions on their key and the type of session
         sessions = Session.query(
             ancestor=ndb.Key(urlsafe=request.websafeConferenceKey)
         ).filter(Session.typeOfSession == request.typeOfSession)
@@ -673,10 +686,51 @@ class ConferenceApi(remote.Service):
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
 
+        # Filter sessions on speaker name
         sessions = Session.query().filter(Session.speakers == request.message)
         return SessionForms(
             sessions = [self._copySessionToForm(sesh) for sesh in sessions]
             )        
+
+
+    @endpoints.method(SESS_WISH_POST_REQUEST, ProfileForm,
+        path='addSessionToWishlist/{websafeSessionKey}',
+        http_method='POST',
+        name='addSessionToWishlist')
+    def addSessionToWishlist(self, request):
+        """Add a sessions to a profiles wish to attend wishlist."""
+        wssk = request.websafeSessionKey
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        
+        # Get the session
+        session = ndb.Key(urlsafe=wssk).get()
+        if not session:
+            raise endpoints.NotFoundException(
+                'No session found with key: {}'.format(wssk))
+
+        # Get the profile
+        user_id = getUserId(user)
+        profile = ndb.Key(Profile, user_id).get()
+
+        # Check that it's not already on the wishlist
+        if wssk in profile.sessionWishlist:
+            raise ConflictException("This session is already in your wishlist.")
+
+        # Check that the session is in a registered conference
+        if profile.conferenceKeysToAttend:
+            seshs = [Session.query(ancestor=ndb.Key(urlsafe=p_key)) for p_key in profile.conferenceKeysToAttend]
+            if not seshs:
+                raise endpoints.ForbiddenException(
+                    "You are not attending the conference that this session is in.")
+            profile.sessionWishlist.append(wssk)
+            profile.put()
+        else:
+            raise endpoints.ForbiddenException(
+                "You are not attending the conference that this session is in.")
+
+        return self._copyProfileToForm(profile)
 
 
 api = endpoints.api_server([ConferenceApi]) # register API

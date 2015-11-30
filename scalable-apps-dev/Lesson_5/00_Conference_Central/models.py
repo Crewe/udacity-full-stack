@@ -27,6 +27,7 @@ class Profile(ndb.Model):
     mainEmail = ndb.StringProperty()
     teeShirtSize = ndb.StringProperty(default='NOT_SPECIFIED')
     conferenceKeysToAttend = ndb.StringProperty(repeated=True)
+    sessionWishlist = ndb.StringProperty(repeated=True)
 
 class ProfileMiniForm(messages.Message):
     """ProfileMiniForm -- update Profile form message"""
@@ -39,6 +40,7 @@ class ProfileForm(messages.Message):
     mainEmail = messages.StringField(2)
     teeShirtSize = messages.EnumField('TeeShirtSize', 3)
     conferenceKeysToAttend = messages.StringField(4, repeated=True)
+    sessionWishlist = messages.StringField(5, repeated=True)
 
 class BooleanMessage(messages.Message):
     """BooleanMessage-- outbound Boolean value message"""
@@ -134,7 +136,7 @@ class SessionForm(messages.Message):
     typeOfSession   = messages.EnumField('TypeOfSession', 5)
     date            = messages.StringField(6)
     startTime       = messages.StringField(7)
-    conferenceKey   = messages.StringField(8)
+    websafeKey      = messages.StringField(8)
 
 class SessionForms(messages.Message):
     """SessionForms -- multiple SessionForm"""
