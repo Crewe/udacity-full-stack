@@ -346,7 +346,7 @@ def deleteItem(cat_name, item_name):
     itemToDelete = getItem(item_name)
     if request.method == 'POST':
         session.delete(itemToDelete)
-        session.commit
+        session.commit()
         flash("Item successfully deleted.")
         return redirect(url_for('showCategory', cat_name=cat_name))
     else:
