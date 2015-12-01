@@ -27,6 +27,7 @@ class Profile(ndb.Model):
     mainEmail = ndb.StringProperty()
     teeShirtSize = ndb.StringProperty(default='NOT_SPECIFIED')
     conferenceKeysToAttend = ndb.StringProperty(repeated=True)
+    sessionWishlist = ndb.StringProperty(repeated=True)
 
 class ProfileMiniForm(messages.Message):
     """ProfileMiniForm -- update Profile form message"""
@@ -39,6 +40,7 @@ class ProfileForm(messages.Message):
     mainEmail = messages.StringField(2)
     teeShirtSize = messages.EnumField('TeeShirtSize', 3)
     conferenceKeysToAttend = messages.StringField(4, repeated=True)
+    sessionWishlist = messages.StringField(5, repeated=True)
 
 class BooleanMessage(messages.Message):
     """BooleanMessage-- outbound Boolean value message"""
@@ -103,4 +105,40 @@ class ConferenceQueryForm(messages.Message):
 class ConferenceQueryForms(messages.Message):
     """ConferenceQueryForms -- multiple ConferenceQueryForm inbound form message"""
     filters = messages.MessageField(ConferenceQueryForm, 1, repeated=True)
+
+class StringMessage(messages.Message):
+    """StringMessage-- outbound (single) string message"""
+    message = messages.StringField(1, required=True)
+
+class TypeOfSession(messages.Enum):
+    """TypeOfSession -- Types of sessions a conference can have."""
+    NOT_SPECIFIED = 1
+    WORKSHOP = 2
+    LECTURE = 3
+    KEYNOTE = 4
+
+class Session(ndb.Model):
+    """Session -- Session object"""
+    name            = ndb.StringProperty(required=True)
+    highlights      = ndb.StringProperty()
+    speakers        = ndb.StringProperty(repeated=True)
+    duration        = ndb.IntegerProperty()
+    typeOfSession   = ndb.StringProperty(default='NOT_SPECIFIED')
+    date            = ndb.DateProperty()
+    startTime       = ndb.TimeProperty()
+    
+class SessionForm(messages.Message):
+    """SessionForm -- Session form messaging."""
+    name            = messages.StringField(1, required=True)
+    highlights      = messages.StringField(2)
+    speakers        = messages.StringField(3, repeated=True)
+    duration        = messages.IntegerField(4)
+    typeOfSession   = messages.EnumField('TypeOfSession', 5)
+    date            = messages.StringField(6)
+    startTime       = messages.StringField(7)
+    websafeKey      = messages.StringField(8)
+
+class SessionForms(messages.Message):
+    """SessionForms -- multiple SessionForm"""
+    sessions = messages.MessageField(SessionForm, 1, repeated=True)
 

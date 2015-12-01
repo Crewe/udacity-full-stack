@@ -35,6 +35,10 @@ from models import ConferenceForms
 from models import ConferenceQueryForm
 from models import ConferenceQueryForms
 from models import TeeShirtSize
+from models import StringMessage
+from models import Session
+from models import SessionForm, SessionForms
+from models import TypeOfSession
 
 from utils import getUserId
 
@@ -77,6 +81,27 @@ CONF_GET_REQUEST = endpoints.ResourceContainer(
 CONF_POST_REQUEST = endpoints.ResourceContainer(
     ConferenceForm,
     websafeConferenceKey=messages.StringField(1),
+)
+
+SESS_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeConferenceKey=messages.StringField(1),
+)
+
+SESS_POST_REQUEST = endpoints.ResourceContainer(
+    SessionForm,
+    websafeConferenceKey=messages.StringField(1),
+)
+
+SESS_TYPE_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeConferenceKey=messages.StringField(1),
+    typeOfSession=messages.StringField(2)
+)
+
+SESS_WISH_POST_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeSessionKey=messages.StringField(1)
 )
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -153,7 +178,9 @@ class ConferenceApi(remote.Service):
         # create Conference, send email to organizer confirming
         # creation of Conference & return (modified) ConferenceForm
         Conference(**data).put()
-        # TODO 2: add confirmation email sending task to queue
+        taskqueue.add(params={'email': user.email(),
+                              'conference': repr(request)},
+                      url='/tasks/send_confirmation_email')
 
         return request
 
@@ -437,6 +464,12 @@ class ConferenceApi(remote.Service):
 
                 # unregister user, add back one seat
                 prof.conferenceKeysToAttend.remove(wsck)
+                # remove sessions from wishlist
+                seshs = Session.query(ancestor=ndb.Key(urlsafe=wsck))                
+                for session in seshs:
+                    s_key = session.key.urlsafe()
+                    if s_key in prof.sessionWishlist:
+                        prof.sessionWishlist.remove(s_key)
                 conf.seatsAvailable += 1
                 retval = True
             else:
@@ -490,6 +523,242 @@ class ConferenceApi(remote.Service):
 
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -
 
-# TODO 1
+    @staticmethod
+    def _cacheAnnouncement():
+        """Create Announcement & assighn to memcache; used by memcache cron
+        job & putAnnouncement().
+        """
+        confs = Conference.query(ndb.AND(
+                                 Conference.seatsAvailable <= 5,
+                                 Conference.seatsAvailable > 0)
+                                ).fetch(projection=[Conference.name])
+
+        if confs:
+            # If there are almost sold out conferecnes, format announcement
+            # and set it in the memecache
+            announcement = '{0} {1}'.\
+                format('Last chance to attend! The following conferecences '
+                       'are nearly sold out:',
+                       ', '.join(conf.name for conf in confs))
+            memcache.set(MEMCACHE_ANNOUNCEMENTS_KEY, announcement)
+        else:
+            # If there are no sald out conferences, delet the memcache
+            # announcements entry
+            announcement = ""
+            memcache.delete(MEMCACHE_ANNOUNCEMENTS_KEY)
+
+        return announcement
+
+    @endpoints.method(message_types.VoidMessage, StringMessage,
+                      path='conference/announcement/get',
+                      http_method='GET',
+                      name='getAnnouncement')
+    def getAnnouncement(self, request):
+        """Return Announcement from memcache."""
+        announcement = memcache.get(MEMCACHE_ANNOUNCEMENTS_KEY)
+        if not announcement:
+            announcement = ""
+        return StringMessage(message=announcement)
+
+
+# - - - Sessions - - - - - - - - - - - - - - - - - - - -
+
+    def _copySessionToForm(self, sess):
+        """Copy fileds from the Session to the SessionForm."""
+        sf = SessionForm()
+        for field in sf.all_fields():
+            if hasattr(sess, field.name):
+                if field.name == 'typeOfSession':
+                    setattr(sf, field.name, 
+                        getattr(TypeOfSession, getattr(sess, field.name)))
+                elif field.name in ('startTime', 'date'):
+                    setattr(sf, field.name, str(getattr(sess, field.name)))
+                else:
+                    setattr(sf, field.name, getattr(sess, field.name))
+            elif field.name == 'websafeKey':
+                setattr(sf, field.name, sess.key.urlsafe())
+        
+        sf.check_initialized()
+        return sf
+
+
+    def _createSession(self, request):
+        # preload necessary data items
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        # check that conference exists
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: %s' % request.websafeConferenceKey)
+
+        # check that user is owner
+        if user_id != conf.organizerUserId:
+            raise endpoints.ForbiddenException(
+                'Only the owner can add a session to the conference.')
+
+        if not request.name:
+            raise endpoints.BadRequestException("Session 'name' field required")
+
+        if not request.speakers:
+            raise endpoints.BadRequestException("Session 'speakers' field required")
+
+        # generate Session Key based on conference key,
+        # session id, and session name.
+        c_key = ndb.Key(urlsafe=request.websafeConferenceKey)
+        s_id = Session.allocate_ids(size=1, parent=c_key)[0]
+        s_key = ndb.Key(Session, request.name, parent=c_key)
+
+        session = Session(key=s_key)
+        
+        for field in request.all_fields():
+            data = getattr(request, field.name)
+            if data not in (None, []):
+                if field.name == 'startTime':
+                    data = datetime.strptime(data, "%H:%M").time()
+                if field.name == 'date':
+                    data = datetime.strptime(data, "%Y-%m-%d").date()
+                if field.name == 'typeOfSession':
+                    data = str(data)
+
+                setattr(session, field.name, data)
+
+        session.put()
+
+        return self._copySessionToForm(session)
+
+
+    @endpoints.method(SESS_POST_REQUEST, SessionForm, 
+                      path='session/{websafeConferenceKey}',
+                      http_method='POST', 
+                      name='createSession')
+    def createSession(self, request):
+        """Create new session in a conference."""
+        return self._createSession(request)
+
+    
+    @endpoints.method(SESS_GET_REQUEST, SessionForms,
+        path='getConferenceSessions/{websafeConferenceKey}',
+        http_method='GET',
+        name='getConferenceSessions')
+    def getConferenceSessions(self, request):
+        """Return sessions that are in a conference."""
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        sessions = Session.query(ancestor=ndb.Key(urlsafe=request.websafeConferenceKey))
+        return SessionForms(
+            sessions = [self._copySessionToForm(sesh) for sesh in sessions]
+            )
+
+
+    @endpoints.method(SESS_TYPE_GET_REQUEST, SessionForms,
+        path='getConferenceSessionsByType/{websafeConferenceKey}',
+        http_method='GET',
+        name='getConferenceSessionsByType')
+    def getConferenceSessionsByType(self, request):
+        """Return sessions in a conference of a certain type."""
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        # Filter sessions on their key and the type of session
+        sessions = Session.query(
+            ancestor=ndb.Key(urlsafe=request.websafeConferenceKey)
+        ).filter(Session.typeOfSession == request.typeOfSession)
+
+        return SessionForms(
+            sessions = [self._copySessionToForm(sesh) for sesh in sessions]
+            )
+
+
+    @endpoints.method(StringMessage, SessionForms,
+        path='getSessionsBySpeaker',
+        http_method='GET',
+        name='getSessionsBySpeaker')
+    def getSessionsBySpeaker(self, request):
+        """Get sessions by a speaker accross all conferences."""
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        # Filter sessions on speaker name
+        sessions = Session.query().filter(Session.speakers == request.message)
+        return SessionForms(
+            sessions = [self._copySessionToForm(sesh) for sesh in sessions]
+            )        
+
+
+    @endpoints.method(SESS_WISH_POST_REQUEST, ProfileForm,
+        path='addSessionToWishlist/{websafeSessionKey}',
+        http_method='POST',
+        name='addSessionToWishlist')
+    def addSessionToWishlist(self, request):
+        """Add a sessions to a profiles wish to attend wishlist."""
+        wssk = request.websafeSessionKey
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        
+        # Get the session
+        session = ndb.Key(urlsafe=wssk).get()
+        if not session:
+            raise endpoints.NotFoundException(
+                'No session found with key: {}'.format(wssk))
+
+        # Get the profile
+        user_id = getUserId(user)
+        profile = ndb.Key(Profile, user_id).get()
+
+        # Check that it's not already on the wishlist
+        if wssk in profile.sessionWishlist:
+            raise ConflictException("This session is already in your wishlist.")
+
+        # Check that the session is in a registered conference
+        if profile.conferenceKeysToAttend:
+            seshs = [Session.query(ancestor=ndb.Key(urlsafe=p_key)) for p_key in profile.conferenceKeysToAttend]
+            if not seshs:
+                raise endpoints.ForbiddenException(
+                    "You are not attending the conference that this session is in.")
+            profile.sessionWishlist.append(wssk)
+            profile.put()
+        else:
+            raise endpoints.ForbiddenException(
+                "You are not attending the conference that this session is in.")
+
+        return self._copyProfileToForm(profile)
+
+
+    @endpoints.method(CONF_GET_REQUEST, SessionForms,
+        path='getSessionsInWishlist/{websafeConferenceKey}',
+        http_method='GET',
+        name='getSessionsInWishlist')
+    def getSessionsInWishlist(self, request):
+        """Get the sessions that are in the users wishlist."""
+        wsck = request.websafeConferenceKey
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        
+        # Get the profile
+        user_id = getUserId(user)
+        profile = ndb.Key(Profile, user_id).get()
+
+        sessions = [ndb.Key(urlsafe=wssk).get() for wssk in profile.sessionWishlist]
+        #sessions = []
+        #seshs = Session.query(ancestor=ndb.Key(urlsafe=wsck))
+        #for session in seshs:
+        #    s_key = session.key.urlsafe()
+        #    if s_key in prof.sessionWishlist:
+        #        sessions.append(session)
+
+        return SessionForms(
+            sessions = [self._copySessionToForm(sesh) for sesh in sessions]
+            )
+
 
 api = endpoints.api_server([ConferenceApi]) # register API
