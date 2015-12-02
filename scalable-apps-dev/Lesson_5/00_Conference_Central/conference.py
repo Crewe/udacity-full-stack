@@ -32,8 +32,8 @@ from models import BooleanMessage
 from models import Conference
 from models import ConferenceForm
 from models import ConferenceForms
-from models import ConferenceQueryForm
-from models import ConferenceQueryForms
+from models import QueryForm
+from models import QueryForms
 from models import TeeShirtSize
 from models import StringMessage
 from models import Session
@@ -54,7 +54,7 @@ DEFAULTS = {
     "city": "Default City",
     "maxAttendees": 0,
     "seatsAvailable": 0,
-    "topics": [ "Default", "Topic" ],
+    "topics": [ "Default", "Topic" ]
 }
 
 OPERATORS = {
@@ -71,6 +71,9 @@ FIELDS =    {
             'TOPIC': 'topics',
             'MONTH': 'month',
             'MAX_ATTENDEES': 'maxAttendees',
+            'DURATION': 'duration',
+            'SESS_START_TIME': 'startTime',
+            'TYPE_OF_SESSION': 'typeOfSession'
             }
 
 CONF_GET_REQUEST = endpoints.ResourceContainer(
@@ -102,6 +105,13 @@ SESS_TYPE_GET_REQUEST = endpoints.ResourceContainer(
 SESS_WISH_POST_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeSessionKey=messages.StringField(1)
+)
+
+SESS_FILTER_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeConferenceKey=messages.StringField(1),
+    operator=messages.StringField(2),
+    value=messages.StringField(3)
 )
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -274,7 +284,32 @@ class ConferenceApi(remote.Service):
         )
 
 
-    def _getQuery(self, request):
+    def _getSessionQuery(self, request, ancestor=None):
+        """Return formatted query from the submitted filter"""
+        if not ancestor:
+            q = Session.query()
+        else:
+            a_key = ancestor
+            q = Session.query(ancestor=ndb.Key(urlsafe=a_key))
+
+        inequality_filter, filters = self._formatFilters(request.filters)
+
+        # If exists, sort on inequality filter first
+        if not inequality_filter:
+            q = q.order(Session.name)
+        else:
+            q = q.order(ndb.GenericProperty(inequality_filter))
+            q = q.order(Session.name)
+
+        for filtr in filters:
+            if filtr["field"] in ["duration"]:
+                filtr["value"] = int(filtr["value"])
+            formatted_query = ndb.query.FilterNode(filtr["field"], filtr["operator"], filtr["value"])
+            q = q.filter(formatted_query)
+        return q
+
+
+    def _getConferenceQuery(self, request):
         """Return formatted query from the submitted filters."""
         q = Conference.query()
         inequality_filter, filters = self._formatFilters(request.filters)
@@ -322,13 +357,13 @@ class ConferenceApi(remote.Service):
         return (inequality_field, formatted_filters)
 
 
-    @endpoints.method(ConferenceQueryForms, ConferenceForms,
+    @endpoints.method(QueryForms, ConferenceForms,
             path='queryConferences',
             http_method='POST',
             name='queryConferences')
     def queryConferences(self, request):
         """Query for conferences."""
-        conferences = self._getQuery(request)
+        conferences = self._getConferenceQuery(request)
 
         # need to fetch organiser displayName from profiles
         # get all keys and use get_multi for speed
@@ -618,7 +653,7 @@ class ConferenceApi(remote.Service):
             data = getattr(request, field.name)
             if data not in (None, []):
                 if field.name == 'startTime':
-                    data = datetime.strptime(data, "%H:%M").time()
+                    data = datetime.strptime(data, "%H:%M:%S").time()
                 if field.name == 'date':
                     data = datetime.strptime(data, "%Y-%m-%d").date()
                 if field.name == 'typeOfSession':
@@ -651,6 +686,7 @@ class ConferenceApi(remote.Service):
             raise endpoints.UnauthorizedException('Authorization required')
 
         sessions = Session.query(ancestor=ndb.Key(urlsafe=request.websafeConferenceKey))
+
         return SessionForms(
             sessions = [self._copySessionToForm(sesh) for sesh in sessions]
             )
@@ -786,6 +822,94 @@ class ConferenceApi(remote.Service):
         # Update the profile
         profile.put()
         return BooleanMessage(data=retval)
+
+
+    @endpoints.method(SESS_FILTER_GET_REQUEST, SessionForms,
+        path='session/duration/{websafeConferenceKey}',
+        http_method='GET',
+        name='getSessionsByDuration')
+    def getSessionsByDuration(self, request):
+        """Filter sessions based on its duration in a conference."""
+        # Authorize
+        wsck = request.websafeConferenceKey
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        # Fill the query to have field, op and value
+        query = QueryForm(field='DURATION', 
+                          operator=request.operator, 
+                          value=request.value)
+        sessions = self._getSessionQuery(QueryForms(filters=[query]),
+                                                    ancestor=wsck)
+
+        return SessionForms(
+            sessions=[self._copySessionToForm(session) for session in sessions]
+            )
+
+
+    @endpoints.method(QueryForms, SessionForms,
+        path='querySessions',
+        http_method='POST',
+        name='querySessions')
+    def querySessions(self, request):
+        """Filter sessions based on its type and start time."""
+        # Authorize
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        # check for the first start time inequality and pull it out, 
+        # otherwise business as usual.
+        typeToRemove = None
+        fltrd_sess = []
+        for queryform in request.filters:
+            if queryform.field == "SESS_START_TIME":
+                typeToRemove = queryform
+                request.filters.remove(queryform)
+
+        sessions = self._getSessionQuery(request)
+        
+        # Manually remove the sessions of a particular type
+        if typeToRemove:
+            for sesh in sessions:
+                op = None
+                try:
+                    op = OPERATORS[typeToRemove.operator]
+                    op = typeToRemove.operator
+                except KeyError:
+                    raise endpoints.BadRequestException("Filter contains invalid field or operator.")
+
+                filter_time = datetime.strptime(typeToRemove.value,"%H:%M:%S").time()
+
+                if op == "EQ":
+                    if sesh.startTime == filter_time:
+                        fltrd_sess.append(sesh)
+                elif op == "GT":
+                    if sesh.startTime > filter_time:
+                        fltrd_sess.append(sesh)
+                elif op == 'GTEQ':
+                    if sesh.startTime >= filter_time :
+                        fltrd_sess.append(sesh)
+                elif op == 'LT':
+                    if sesh.startTime < filter_time :
+                        fltrd_sess.append(sesh)
+                elif op == 'LTEQ':
+                    if sesh.startTime <= filter_time :
+                        fltrd_sess.append(sesh)
+                elif op == 'NE':
+                    if sesh.startTime != filter_time :
+                        fltrd_sess.append(sesh)
+            
+            # Return time filtered sessions
+            return SessionForms(
+            sessions=[self._copySessionToForm(session) for session in fltrd_sess]
+            )     
+
+        # Return sessions if query was standard
+        return SessionForms(
+            sessions=[self._copySessionToForm(session) for session in sessions]
+            )
 
 
 api = endpoints.api_server([ConferenceApi]) # register API
