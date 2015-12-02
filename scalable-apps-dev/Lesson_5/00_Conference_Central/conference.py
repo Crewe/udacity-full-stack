@@ -104,6 +104,12 @@ SESS_WISH_POST_REQUEST = endpoints.ResourceContainer(
     websafeSessionKey=messages.StringField(1)
 )
 
+SESS_FILTER_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeConferenceKey=messages.StringField(1),
+    value=messages.StringField(2)
+)
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -786,6 +792,39 @@ class ConferenceApi(remote.Service):
         # Update the profile
         profile.put()
         return BooleanMessage(data=retval)
+
+
+    @endpoints.method(SESS_FILTER_GET_REQUEST, SessionForms,
+        path='session/shorter/{websafeConferenceKey}',
+        http_method='GET',
+        name='getSessionsUnderDuration')
+    def getSessionsUnderDuration(self, request):
+        """Get sessions under a length of given minutes in a conference."""
+        
+        duration = 60
+        try:
+            duration = int(request.value)
+        except ValueError:
+            raise endpoints.BadRequestException("Duration value is not an integer.")
+        else:
+            if duration > 60 * 24:
+                raise endpoints.BadRequestException("Duration is too long. Must be less than a 24hr period.")
+
+        wsck = request.websafeConferenceKey
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        
+        # Get the profile
+        user_id = getUserId(user)
+        profile = ndb.Key(Profile, user_id).get()
+
+        sessions = Session.query(ancestor=ndb.Key(urlsafe=wsck)).filter(Session.duration <= duration)
+
+        return SessionForms(
+            sessions=[self._copySessionToForm(session) for session in sessions]
+            )
+        
 
 
 api = endpoints.api_server([ConferenceApi]) # register API
