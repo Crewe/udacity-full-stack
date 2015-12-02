@@ -72,7 +72,9 @@ FIELDS =    {
             'TOPIC': 'topics',
             'MONTH': 'month',
             'MAX_ATTENDEES': 'maxAttendees',
-            'DURATION': 'duration'
+            'DURATION': 'duration',
+            'SESS_START_TIME': 'startTime',
+            'TYPE_OF_SESSION': 'typeOfSession'
             }
 
 CONF_GET_REQUEST = endpoints.ResourceContainer(
@@ -303,6 +305,8 @@ class ConferenceApi(remote.Service):
         for filtr in filters:
             if filtr["field"] in ["duration"]:
                 filtr["value"] = int(filtr["value"])
+            #if filtr["field"] in ["startTime"]:
+            #    filtr["value"] = datetime.strptime(filtr["value"], "%H:%M").time()
             formatted_query = ndb.query.FilterNode(filtr["field"], filtr["operator"], filtr["value"])
             q = q.filter(formatted_query)
         return q
@@ -685,7 +689,7 @@ class ConferenceApi(remote.Service):
             raise endpoints.UnauthorizedException('Authorization required')
 
         sessions = Session.query(ancestor=ndb.Key(urlsafe=request.websafeConferenceKey))
-        
+
         return SessionForms(
             sessions = [self._copySessionToForm(sesh) for sesh in sessions]
             )
@@ -846,6 +850,43 @@ class ConferenceApi(remote.Service):
             sessions=[self._copySessionToForm(session) for session in sessions]
             )
 
+
+    @endpoints.method(QueryForms, SessionForms,
+        path='querySessions',
+        http_method='POST',
+        name='querySessions')
+    def querySessions(self, request):
+        """Filter sessions based on its type and start time."""
+        # Authorize
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        # check for inequality of type, and pull it out, otherwise business as usual.
+        typeToRemove = None
+        fltrd_sess = []
+        for queryform in request.filters:
+            if queryform.operator != "EQ" and queryform.field == "TYPE_OF_SESSION":
+                typeToRemove = queryform
+                request.filters.remove(queryform)
+
+        sessions = self._getSessionQuery(request)
+        
+        # Manually remove the sessions of a particular type
+        if typeToRemove:
+            for sesh in sessions:
+                if sesh.typeOfSession != typeToRemove.value: 
+                    fltrd_sess.append(sesh)
+            #fltrd_sess = [if sesh.typeOfSession != typeToRemove.value: \
+             #fltrd_sess.append(sesh) for sesh in sessions]
+            return SessionForms(
+            sessions=[self._copySessionToForm(session) for session in fltrd_sess]
+            )     
+
+        # Return sessions if query was standard
+        return SessionForms(
+            sessions=[self._copySessionToForm(session) for session in sessions]
+            )
 
 
 api = endpoints.api_server([ConferenceApi]) # register API
