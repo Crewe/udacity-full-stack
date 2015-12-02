@@ -54,8 +54,7 @@ DEFAULTS = {
     "city": "Default City",
     "maxAttendees": 0,
     "seatsAvailable": 0,
-    "topics": [ "Default", "Topic" ],
-    "duration": 0
+    "topics": [ "Default", "Topic" ]
 }
 
 OPERATORS = {
@@ -305,8 +304,6 @@ class ConferenceApi(remote.Service):
         for filtr in filters:
             if filtr["field"] in ["duration"]:
                 filtr["value"] = int(filtr["value"])
-            #if filtr["field"] in ["startTime"]:
-            #    filtr["value"] = datetime.strptime(filtr["value"], "%H:%M").time()
             formatted_query = ndb.query.FilterNode(filtr["field"], filtr["operator"], filtr["value"])
             q = q.filter(formatted_query)
         return q
@@ -656,7 +653,7 @@ class ConferenceApi(remote.Service):
             data = getattr(request, field.name)
             if data not in (None, []):
                 if field.name == 'startTime':
-                    data = datetime.strptime(data, "%H:%M").time()
+                    data = datetime.strptime(data, "%H:%M:%S").time()
                 if field.name == 'date':
                     data = datetime.strptime(data, "%Y-%m-%d").date()
                 if field.name == 'typeOfSession':
@@ -862,11 +859,12 @@ class ConferenceApi(remote.Service):
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
 
-        # check for inequality of type, and pull it out, otherwise business as usual.
+        # check for the first start time inequality and pull it out, 
+        # otherwise business as usual.
         typeToRemove = None
         fltrd_sess = []
         for queryform in request.filters:
-            if queryform.operator != "EQ" and queryform.field == "TYPE_OF_SESSION":
+            if queryform.field == "SESS_START_TIME":
                 typeToRemove = queryform
                 request.filters.remove(queryform)
 
@@ -875,10 +873,35 @@ class ConferenceApi(remote.Service):
         # Manually remove the sessions of a particular type
         if typeToRemove:
             for sesh in sessions:
-                if sesh.typeOfSession != typeToRemove.value: 
-                    fltrd_sess.append(sesh)
-            #fltrd_sess = [if sesh.typeOfSession != typeToRemove.value: \
-             #fltrd_sess.append(sesh) for sesh in sessions]
+                op = None
+                try:
+                    op = OPERATORS[typeToRemove.operator]
+                    op = typeToRemove.operator
+                except KeyError:
+                    raise endpoints.BadRequestException("Filter contains invalid field or operator.")
+
+                filter_time = datetime.strptime(typeToRemove.value,"%H:%M:%S").time()
+
+                if op == "EQ":
+                    if sesh.startTime == filter_time:
+                        fltrd_sess.append(sesh)
+                elif op == "GT":
+                    if sesh.startTime > filter_time:
+                        fltrd_sess.append(sesh)
+                elif op == 'GTEQ':
+                    if sesh.startTime >= filter_time :
+                        fltrd_sess.append(sesh)
+                elif op == 'LT':
+                    if sesh.startTime < filter_time :
+                        fltrd_sess.append(sesh)
+                elif op == 'LTEQ':
+                    if sesh.startTime <= filter_time :
+                        fltrd_sess.append(sesh)
+                elif op == 'NE':
+                    if sesh.startTime != filter_time :
+                        fltrd_sess.append(sesh)
+            
+            # Return time filtered sessions
             return SessionForms(
             sessions=[self._copySessionToForm(session) for session in fltrd_sess]
             )     

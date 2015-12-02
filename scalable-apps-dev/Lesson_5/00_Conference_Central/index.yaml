@@ -111,6 +111,23 @@ indexes:
   - name: name
 
 - kind: Session
+  properties:
+  - name: startTime
+  - name: typeOfSession
+  - name: name
+
+- kind: Session
+  properties:
+  - name: typeOfSession
+  - name: name
+
+- kind: Session
+  properties:
+  - name: typeOfSession
+  - name: typeOfSession
+  - name: name
+
+- kind: Session
   ancestor: yes
   properties:
   - name: duration
