@@ -96,15 +96,15 @@ class TeeShirtSize(messages.Enum):
     XXXL_M = 14
     XXXL_W = 15
 
-class ConferenceQueryForm(messages.Message):
-    """ConferenceQueryForm -- Conference query inbound form message"""
+class QueryForm(messages.Message):
+    """QueryForm -- Kind query inbound form message"""
     field = messages.StringField(1)
     operator = messages.StringField(2)
     value = messages.StringField(3)
 
-class ConferenceQueryForms(messages.Message):
-    """ConferenceQueryForms -- multiple ConferenceQueryForm inbound form message"""
-    filters = messages.MessageField(ConferenceQueryForm, 1, repeated=True)
+class QueryForms(messages.Message):
+    """QueryForms -- multiple QueryForm inbound form message"""
+    filters = messages.MessageField(QueryForm, 1, repeated=True)
 
 class StringMessage(messages.Message):
     """StringMessage-- outbound (single) string message"""
@@ -122,7 +122,7 @@ class Session(ndb.Model):
     name            = ndb.StringProperty(required=True)
     highlights      = ndb.StringProperty()
     speakers        = ndb.StringProperty(repeated=True)
-    duration        = ndb.IntegerProperty()
+    duration        = ndb.IntegerProperty(default=60)
     typeOfSession   = ndb.StringProperty(default='NOT_SPECIFIED')
     date            = ndb.DateProperty()
     startTime       = ndb.TimeProperty()
