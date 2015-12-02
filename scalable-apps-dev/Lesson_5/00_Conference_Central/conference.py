@@ -641,7 +641,7 @@ class ConferenceApi(remote.Service):
 
     
     @endpoints.method(SESS_GET_REQUEST, SessionForms,
-        path='getConferenceSessions/{websafeConferenceKey}',
+        path='session/{websafeConferenceKey}',
         http_method='GET',
         name='getConferenceSessions')
     def getConferenceSessions(self, request):
@@ -657,7 +657,7 @@ class ConferenceApi(remote.Service):
 
 
     @endpoints.method(SESS_TYPE_GET_REQUEST, SessionForms,
-        path='getConferenceSessionsByType/{websafeConferenceKey}',
+        path='session/type/{websafeConferenceKey}',
         http_method='GET',
         name='getConferenceSessionsByType')
     def getConferenceSessionsByType(self, request):
@@ -677,7 +677,7 @@ class ConferenceApi(remote.Service):
 
 
     @endpoints.method(StringMessage, SessionForms,
-        path='getSessionsBySpeaker',
+        path='session/speaker',
         http_method='GET',
         name='getSessionsBySpeaker')
     def getSessionsBySpeaker(self, request):
@@ -693,12 +693,13 @@ class ConferenceApi(remote.Service):
             )        
 
 
-    @endpoints.method(SESS_WISH_POST_REQUEST, ProfileForm,
-        path='addSessionToWishlist/{websafeSessionKey}',
+    @endpoints.method(SESS_WISH_POST_REQUEST, BooleanMessage,
+        path='profile/wishlist/{websafeSessionKey}',
         http_method='POST',
         name='addSessionToWishlist')
     def addSessionToWishlist(self, request):
         """Add a sessions to a profiles wish to attend wishlist."""
+        retval = False
         wssk = request.websafeSessionKey
         user = endpoints.get_current_user()
         if not user:
@@ -718,7 +719,7 @@ class ConferenceApi(remote.Service):
         if wssk in profile.sessionWishlist:
             raise ConflictException("This session is already in your wishlist.")
 
-        # Check that the session is in a registered conference
+        # Check that the session is in a conference the user is registered in
         if profile.conferenceKeysToAttend:
             seshs = [Session.query(ancestor=ndb.Key(urlsafe=p_key)) for p_key in profile.conferenceKeysToAttend]
             if not seshs:
@@ -726,19 +727,20 @@ class ConferenceApi(remote.Service):
                     "You are not attending the conference that this session is in.")
             profile.sessionWishlist.append(wssk)
             profile.put()
+            retval = True
         else:
             raise endpoints.ForbiddenException(
                 "You are not attending the conference that this session is in.")
 
-        return self._copyProfileToForm(profile)
+        return BooleanMessage(data=retval)
 
 
     @endpoints.method(CONF_GET_REQUEST, SessionForms,
-        path='getSessionsInWishlist/{websafeConferenceKey}',
+        path='profile/wishlist/{websafeConferenceKey}',
         http_method='GET',
         name='getSessionsInWishlist')
     def getSessionsInWishlist(self, request):
-        """Get the sessions that are in the users wishlist."""
+        """Get the sessions that are in the users wishlist, for the given conference key."""
         wsck = request.websafeConferenceKey
         user = endpoints.get_current_user()
         if not user:
@@ -749,16 +751,41 @@ class ConferenceApi(remote.Service):
         profile = ndb.Key(Profile, user_id).get()
 
         sessions = [ndb.Key(urlsafe=wssk).get() for wssk in profile.sessionWishlist]
-        #sessions = []
-        #seshs = Session.query(ancestor=ndb.Key(urlsafe=wsck))
-        #for session in seshs:
-        #    s_key = session.key.urlsafe()
-        #    if s_key in prof.sessionWishlist:
-        #        sessions.append(session)
+ 
+        # If the session's parent key doesn't match the conference key
+        # remove it from the list of sessions to display.
+        for session in sessions:
+            if session.key.parent().urlsafe() != wsck:
+                sessions.remove(session)
 
         return SessionForms(
             sessions = [self._copySessionToForm(sesh) for sesh in sessions]
             )
+
+
+    @endpoints.method(SESS_WISH_POST_REQUEST, BooleanMessage,
+        path='profile/wishlist/{websafeSessionKey}',
+        http_method='DELETE',
+        name='deleteSessionInWishlist')
+    def deleteSessionInWishlist(self, request):
+        """Delete a session from the user's wishlist."""
+        wssk = request.websafeSessionKey
+        retval = False
+
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        # Get the user profile and remove the session if it's there
+        user_id = getUserId(user)
+        profile = ndb.Key(Profile, user_id).get()
+        if wssk in profile.sessionWishlist:
+            profile.sessionWishlist.remove(wssk)
+            retval = True
+
+        # Update the profile
+        profile.put()
+        return BooleanMessage(data=retval)
 
 
 api = endpoints.api_server([ConferenceApi]) # register API
