@@ -704,8 +704,8 @@ class ConferenceApi(remote.Service):
         ).filter(Session.typeOfSession == request.typeOfSession)
 
         return SessionForms(
-            sessions = [self._copySessionToForm(sesh) for sesh in sessions]
-            )
+            sessions=[self._copySessionToForm(sesh) for sesh in sessions]
+        )
 
 
     @endpoints.method(StringMessage, SessionForms,
