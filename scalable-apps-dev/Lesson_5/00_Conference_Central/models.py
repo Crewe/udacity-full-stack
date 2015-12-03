@@ -17,9 +17,11 @@ import endpoints
 from protorpc import messages
 from google.appengine.ext import ndb
 
+
 class ConflictException(endpoints.ServiceException):
     """ConflictException -- exception mapped to HTTP 409 response"""
     http_status = httplib.CONFLICT
+
 
 class Profile(ndb.Model):
     """Profile -- User profile object"""
@@ -29,10 +31,12 @@ class Profile(ndb.Model):
     conferenceKeysToAttend = ndb.StringProperty(repeated=True)
     sessionWishlist = ndb.StringProperty(repeated=True)
 
+
 class ProfileMiniForm(messages.Message):
     """ProfileMiniForm -- update Profile form message"""
     displayName = messages.StringField(1)
     teeShirtSize = messages.EnumField('TeeShirtSize', 2)
+
 
 class ProfileForm(messages.Message):
     """ProfileForm -- Profile outbound form message"""
@@ -42,9 +46,11 @@ class ProfileForm(messages.Message):
     conferenceKeysToAttend = messages.StringField(4, repeated=True)
     sessionWishlist = messages.StringField(5, repeated=True)
 
+
 class BooleanMessage(messages.Message):
     """BooleanMessage-- outbound Boolean value message"""
     data = messages.BooleanField(1)
+
 
 class Conference(ndb.Model):
     """Conference -- Conference object"""
@@ -59,6 +65,7 @@ class Conference(ndb.Model):
     maxAttendees    = ndb.IntegerProperty()
     seatsAvailable  = ndb.IntegerProperty()
 
+
 class ConferenceForm(messages.Message):
     """ConferenceForm -- Conference outbound form message"""
     name            = messages.StringField(1)
@@ -66,17 +73,19 @@ class ConferenceForm(messages.Message):
     organizerUserId = messages.StringField(3)
     topics          = messages.StringField(4, repeated=True)
     city            = messages.StringField(5)
-    startDate       = messages.StringField(6) #DateTimeField()
+    startDate       = messages.StringField(6)  #DateTimeField()
     month           = messages.IntegerField(7)
     maxAttendees    = messages.IntegerField(8)
     seatsAvailable  = messages.IntegerField(9)
-    endDate         = messages.StringField(10) #DateTimeField()
+    endDate         = messages.StringField(10)  #DateTimeField()
     websafeKey      = messages.StringField(11)
     organizerDisplayName = messages.StringField(12)
+
 
 class ConferenceForms(messages.Message):
     """ConferenceForms -- multiple Conference outbound form message"""
     items = messages.MessageField(ConferenceForm, 1, repeated=True)
+
 
 class TeeShirtSize(messages.Enum):
     """TeeShirtSize -- t-shirt size enumeration value"""
@@ -96,19 +105,23 @@ class TeeShirtSize(messages.Enum):
     XXXL_M = 14
     XXXL_W = 15
 
+
 class QueryForm(messages.Message):
     """QueryForm -- Kind query inbound form message"""
     field = messages.StringField(1)
     operator = messages.StringField(2)
     value = messages.StringField(3)
 
+
 class QueryForms(messages.Message):
     """QueryForms -- multiple QueryForm inbound form message"""
     filters = messages.MessageField(QueryForm, 1, repeated=True)
 
+
 class StringMessage(messages.Message):
     """StringMessage-- outbound (single) string message"""
     message = messages.StringField(1, required=True)
+
 
 class TypeOfSession(messages.Enum):
     """TypeOfSession -- Types of sessions a conference can have."""
@@ -116,6 +129,7 @@ class TypeOfSession(messages.Enum):
     WORKSHOP = 2
     LECTURE = 3
     KEYNOTE = 4
+
 
 class Session(ndb.Model):
     """Session -- Session object"""
@@ -126,7 +140,8 @@ class Session(ndb.Model):
     typeOfSession   = ndb.StringProperty(default='NOT_SPECIFIED')
     date            = ndb.DateProperty()
     startTime       = ndb.TimeProperty()
-    
+
+
 class SessionForm(messages.Message):
     """SessionForm -- Session form messaging."""
     name            = messages.StringField(1, required=True)
@@ -138,7 +153,7 @@ class SessionForm(messages.Message):
     startTime       = messages.StringField(7)
     websafeKey      = messages.StringField(8)
 
+
 class SessionForms(messages.Message):
     """SessionForms -- multiple SessionForm"""
     sessions = messages.MessageField(SessionForm, 1, repeated=True)
-
