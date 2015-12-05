@@ -275,7 +275,7 @@ class ConferenceApi(remote.Service):
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
-        user_id =  getUserId(user)
+        user_id = getUserId(user)
         # create ancestor query for all key matches for this user
         confs = Conference.query(ancestor=ndb.Key(Profile, user_id))
         prof = ndb.Key(Profile, user_id).get()
@@ -306,7 +306,7 @@ class ConferenceApi(remote.Service):
             if filtr["field"] in ["duration"]:
                 filtr["value"] = int(filtr["value"])
             formatted_query = ndb.query.FilterNode(filtr["field"], filtr["operator"], filtr["value"])
-             q = q.filter(formatted_query)
+            q = q.filter(formatted_query)
         return q
 
 
@@ -314,7 +314,6 @@ class ConferenceApi(remote.Service):
         """Return formatted query from the submitted filters."""
         q = Conference.query()
         inequality_filter, filters = self._formatFilters(request.filters)
-
         # If exists, sort on inequality filter first
         if not inequality_filter:
             q = q.order(Conference.name)
@@ -461,7 +460,7 @@ class ConferenceApi(remote.Service):
     def _conferenceRegistration(self, request, reg=True):
         """Register or unregister user for selected conference."""
         retval = None
-        prof = self._getProfileFromUser() # get user Profile
+        prof = self._getProfileFromUser()  # get user Profile
 
         # check if conf exists given websafeConfKey
         # get conference; check that it exists
@@ -781,7 +780,6 @@ class ConferenceApi(remote.Service):
         # Get the profile
         user_id = getUserId(user)
         profile = ndb.Key(Profile, user_id).get()
-
         sessions = [ndb.Key(urlsafe=wssk).get() for wssk in profile.sessionWishlist]
 
         # If the session's parent key doesn't match the conference key
@@ -831,14 +829,12 @@ class ConferenceApi(remote.Service):
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
-
         # Fill the query to have field, op and value
         query = QueryForm(field='DURATION',
                           operator=request.operator,
                           value=request.value)
         sessions = self._getSessionQuery(
             QueryForms(filters=[query]), ancestor=wsck)
-
         return SessionForms(
             sessions=[self._copySessionToForm(session) for session in sessions]
         )
