@@ -137,3 +137,9 @@ indexes:
   properties:
   - name: duration
   - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: name
+  - name: name

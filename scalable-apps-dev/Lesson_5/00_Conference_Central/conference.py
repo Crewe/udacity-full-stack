@@ -47,6 +47,7 @@ from settings import WEB_CLIENT_ID
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
 MEMCACHE_ANNOUNCEMENTS_KEY = "RECENT_ANNOUNCEMENTS"
+MEMCACHE_SPEAKER_KEY = "FEATURED_SPEAKER"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -149,7 +150,10 @@ class ConferenceApi(remote.Service):
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
         user_id = getUserId(user)
-
+        # Ensure a profile gets created or conference retreival will fail.
+        profile = self._getProfileFromUser()
+        if not profile:
+            raise endpoints.ConflictException("Unable to create or retrieve profile.")
         if not request.name:
             raise endpoints.BadRequestException("Conference 'name' field required")
 
@@ -188,7 +192,7 @@ class ConferenceApi(remote.Service):
         # creation of Conference & return (modified) ConferenceForm
         Conference(**data).put()
         taskqueue.add(params={'email': user.email(),
-                              'conference': repr(request)},
+                              'conferenceInfo': repr(request)},
                       url='/tasks/send_confirmation_email')
 
         return request
@@ -552,11 +556,59 @@ class ConferenceApi(remote.Service):
         return self._conferenceRegistration(request, reg=False)
 
 
+# - - - Featured Speaker - - - - - - - - - - - - - - - - - - - -
+
+    def _getMemcacheData(self, conference, sessions):
+        """Format the featured speaker message to say what 
+        sessions the speaker is speaking at and generate a 
+        conference-specific memcache key for the featured speaker.
+        """
+        sessionNames = ""
+        for session in sessions:
+            sessionNames += session.name + ", "
+
+        sessionNames = sessionNames[:len(sessionNames) - 2]
+        sessionNames = sessionNames[::-1]
+        sessionNames = sessionNames.replace(" ,", " dna ,", 1)
+        sessionNames = sessionNames[::-1]
+        speakingAt = "{0} is speaking at: {1}".format(session.speaker, sessionNames)
+        memcacheKey = conference.name.replace(" ", "_").upper() + "_" 
+        memcacheKey += MEMCACHE_SPEAKER_KEY
+        return memcacheKey, speakingAt
+
+
+    @staticmethod
+    def _setSpeakerInMemcache(memcacheKey, message):
+        """Add a featured speaker key to the memcache. The most recent
+        speaker with multiple session will be in the cache.
+        """
+        memcache.set(memcacheKey, message)
+
+
+    @endpoints.method(CONF_GET_REQUEST, StringMessage,
+                      path='conference/featuredSpeaker/get',
+                      http_method='GET',
+                      name='getFeaturedSpeaker')
+    def getFeaturedSpeaker(self, request):
+        """Return featured speaker from memcache."""
+        wsck = request.websafeConferenceKey
+        if not wsck:
+            raise endpoints.BadRequestException(
+                "You must specify a conference key.")
+        conf = ndb.Key(urlsafe=wsck).get()
+        if not conf:
+            raise endpoints.NotFoundException("No conference found with that key.")
+        confNameKey = conf.name.upper().replace(" ", "_") + "_"
+        keySpeaker = memcache.get(confNameKey + MEMCACHE_SPEAKER_KEY)
+        if not keySpeaker:
+            keySpeaker = ""
+        return StringMessage(message=keySpeaker)
+
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -
 
     @staticmethod
     def _cacheAnnouncement():
-        """Create Announcement & assighn to memcache; used by memcache cron
+        """Create Announcement & assign to memcache; used by memcache cron
         job & putAnnouncement().
         """
         confs = Conference.query(ndb.AND(
@@ -573,7 +625,7 @@ class ConferenceApi(remote.Service):
                        ', '.join(conf.name for conf in confs))
             memcache.set(MEMCACHE_ANNOUNCEMENTS_KEY, announcement)
         else:
-            # If there are no sald out conferences, delet the memcache
+            # If there are no sold out conferences, delete the memcache
             # announcements entry
             announcement = ""
             memcache.delete(MEMCACHE_ANNOUNCEMENTS_KEY)
@@ -595,7 +647,7 @@ class ConferenceApi(remote.Service):
 # - - - Sessions - - - - - - - - - - - - - - - - - - - -
 
     def _copySessionToForm(self, sess):
-        """Copy fileds from the Session to the SessionForm."""
+        """Copy fieleds from the Session to the SessionForm."""
         sf = SessionForm()
         for field in sf.all_fields():
             if hasattr(sess, field.name):
@@ -614,13 +666,15 @@ class ConferenceApi(remote.Service):
 
 
     def _createSession(self, request):
+        """Create a session in a conference."""
         # preload necessary data items
+        wsck = request.websafeConferenceKey
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
         user_id = getUserId(user)
 
-        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        conf = ndb.Key(urlsafe=wsck).get()
         # check that conference exists
         if not conf:
             raise endpoints.NotFoundException(
@@ -634,14 +688,19 @@ class ConferenceApi(remote.Service):
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
 
-        if not request.speakers:
-            raise endpoints.BadRequestException("Session 'speakers' field required")
+        # Check that session names are unique to a conference
+        sameNameQuery = Session.query(ancestor=ndb.Key(urlsafe=wsck)).\
+            filter(Session.name != "TBA").\
+            filter(Session.name == request.name)
+        if sameNameQuery.count() > 0:
+            raise endpoints.BadRequestException(
+                "A session already exists with that name for this conference.")
 
         # generate Session Key based on conference key,
         # session id, and session name.
         c_key = ndb.Key(urlsafe=request.websafeConferenceKey)
         s_id = Session.allocate_ids(size=1, parent=c_key)[0]
-        s_key = ndb.Key(Session, request.name, parent=c_key)
+        s_key = ndb.Key(Session, s_id, parent=c_key)
 
         session = Session(key=s_key)
 
@@ -659,6 +718,15 @@ class ConferenceApi(remote.Service):
 
         session.put()
 
+        # Check te see if the speaker of the sessions is doing any
+        # other sessions. If so make them a featured speaker in memcache
+        spkrSessions = Session.query(ancestor=ndb.Key(urlsafe=wsck)).\
+            filter(Session.speaker == session.speaker)
+        if spkrSessions.count() > 1:
+            memcacheKey, message = self._getMemcacheData(conf, spkrSessions)
+            taskqueue.add(params={'memcacheKey': memcacheKey,
+                                  'message': message},
+                          url='/tasks/set_featured_speaker')
         return self._copySessionToForm(session)
 
 
@@ -718,7 +786,7 @@ class ConferenceApi(remote.Service):
             raise endpoints.UnauthorizedException('Authorization required')
 
         # Filter sessions on speaker name
-        sessions = Session.query().filter(Session.speakers == request.message)
+        sessions = Session.query().filter(Session.speaker == request.message)
         return SessionForms(
             sessions=[self._copySessionToForm(sesh) for sesh in sessions]
         )
@@ -752,7 +820,8 @@ class ConferenceApi(remote.Service):
 
         # Check that the session is in a conference the user is registered in
         if profile.conferenceKeysToAttend:
-            seshs = [Session.query(ancestor=ndb.Key(urlsafe=p_key)) for p_key in profile.conferenceKeysToAttend]
+            seshs = [Session.query(ancestor=ndb.Key(urlsafe=p_key))
+                     for p_key in profile.conferenceKeysToAttend]
             if not seshs:
                 raise endpoints.ForbiddenException(
                     "You are not attending the conference that this session is in.")
