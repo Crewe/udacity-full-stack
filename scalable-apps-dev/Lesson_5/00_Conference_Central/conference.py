@@ -192,7 +192,7 @@ class ConferenceApi(remote.Service):
         # creation of Conference & return (modified) ConferenceForm
         Conference(**data).put()
         taskqueue.add(params={'email': user.email(),
-                              'conference': repr(request)},
+                              'conferenceInfo': repr(request)},
                       url='/tasks/send_confirmation_email')
 
         return request
@@ -558,11 +558,38 @@ class ConferenceApi(remote.Service):
 
 
 # - - - Featured Speaker - - - - - - - - - - - - - - - - - - - -
-    # @staticmethod
-    # def _cacheSpeaker():
+
+    def _getMemcacheData(self, conference, sessions):
+        sessionNames = ""
+        for session in sessions:
+            sessionNames += session.name + ", "
+            sessionNames = sessionNames[:len(sessionNames) - 2]
+            sessionNames = sessionNames[::-1]
+            sessionNames = sessionNames.replace(" ,", " dna ,", 1)
+            sessionNames = sessionNames[::-1]
+            speakingAt = "{0} is speaking at: {1}".format(session.speaker, sessionNames)
+            memcacheKey = conference.name.replace(" ", "_") + "-" + session.speaker.replace(" ", "_")
+        return memcacheKey.upper(), speakingAt
 
 
+    @staticmethod
+    def _setSpeakerInMemcache(memcacheKey, message):
+        """Add a featured speaker key to the memcache. The most recent
+        speaker with multiple session will be in the cache.
+        """
+        memcache.set(MEMCACHE_SPEAKER_KEY, message)
 
+
+    @endpoints.method(CONF_GET_REQUEST, StringMessage,
+                      path='conference/featuredSpeaker/get',
+                      http_method='GET',
+                      name='getFeaturedSpeaker')
+    def getFeaturedSpeaker(self, request):
+        """Return featured speaker from memcache."""
+        keySpeaker = memcache.get(MEMCACHE_ANNOUNCEMENTS_KEY)
+        if not keySpeaker:
+            keySpeaker = ""
+        return StringMessage(message=keySpeaker)
 
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -
 
@@ -681,10 +708,12 @@ class ConferenceApi(remote.Service):
         # other sessions. If so make them a featured speaker in memcache
         spkrSessions = Session.query(ancestor=ndb.Key(urlsafe=wsck)).\
             filter(Session.speaker == session.speaker)
-        print spkrSessions
         if spkrSessions.count() > 1:
-            print "setting memcache"
-
+            memcacheKey, message = self._getMemcacheData(conf, spkrSessions)
+            taskqueue.add(params={'memcacheKey': MEMCACHE_SPEAKER_KEY,
+                                  'message': message},
+                          url='/tasks/set_featured_speaker')
+            # self._setSpeakerInMemcache(memcacheKey, message)
         return self._copySessionToForm(session)
 
 
