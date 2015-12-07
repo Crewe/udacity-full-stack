@@ -560,16 +560,22 @@ class ConferenceApi(remote.Service):
 # - - - Featured Speaker - - - - - - - - - - - - - - - - - - - -
 
     def _getMemcacheData(self, conference, sessions):
+        """Format the featured speaker message to say what 
+        sessions the speaker is speaking at and generate a 
+        conference-specific memcache key for the featured speaker.
+        """
         sessionNames = ""
         for session in sessions:
             sessionNames += session.name + ", "
-            sessionNames = sessionNames[:len(sessionNames) - 2]
-            sessionNames = sessionNames[::-1]
-            sessionNames = sessionNames.replace(" ,", " dna ,", 1)
-            sessionNames = sessionNames[::-1]
-            speakingAt = "{0} is speaking at: {1}".format(session.speaker, sessionNames)
-            memcacheKey = conference.name.replace(" ", "_") + "-" + session.speaker.replace(" ", "_")
-        return memcacheKey.upper(), speakingAt
+
+        sessionNames = sessionNames[:len(sessionNames) - 2]
+        sessionNames = sessionNames[::-1]
+        sessionNames = sessionNames.replace(" ,", " dna ,", 1)
+        sessionNames = sessionNames[::-1]
+        speakingAt = "{0} is speaking at: {1}".format(session.speaker, sessionNames)
+        memcacheKey = conference.name.replace(" ", "_").upper() + "_" 
+        memcacheKey += MEMCACHE_SPEAKER_KEY
+        return memcacheKey, speakingAt
 
 
     @staticmethod
@@ -577,7 +583,7 @@ class ConferenceApi(remote.Service):
         """Add a featured speaker key to the memcache. The most recent
         speaker with multiple session will be in the cache.
         """
-        memcache.set(MEMCACHE_SPEAKER_KEY, message)
+        memcache.set(memcacheKey, message)
 
 
     @endpoints.method(CONF_GET_REQUEST, StringMessage,
@@ -586,7 +592,15 @@ class ConferenceApi(remote.Service):
                       name='getFeaturedSpeaker')
     def getFeaturedSpeaker(self, request):
         """Return featured speaker from memcache."""
-        keySpeaker = memcache.get(MEMCACHE_ANNOUNCEMENTS_KEY)
+        wsck = request.websafeConferenceKey
+        if not wsck:
+            raise endpoints.BadRequestException(
+                "You must specify a conference key.")
+        conf = ndb.Key(urlsafe=wsck).get()
+        if not conf:
+            raise endpoints.NotFoundException("No conference found with that key.")
+        confNameKey = conf.name.upper().replace(" ", "_") + "_"
+        keySpeaker = memcache.get(confNameKey + MEMCACHE_SPEAKER_KEY)
         if not keySpeaker:
             keySpeaker = ""
         return StringMessage(message=keySpeaker)
@@ -634,7 +648,7 @@ class ConferenceApi(remote.Service):
 # - - - Sessions - - - - - - - - - - - - - - - - - - - -
 
     def _copySessionToForm(self, sess):
-        """Copy fileds from the Session to the SessionForm."""
+        """Copy fieleds from the Session to the SessionForm."""
         sf = SessionForm()
         for field in sf.all_fields():
             if hasattr(sess, field.name):
@@ -653,6 +667,7 @@ class ConferenceApi(remote.Service):
 
 
     def _createSession(self, request):
+        """Create a session in a conference."""
         # preload necessary data items
         wsck = request.websafeConferenceKey
         user = endpoints.get_current_user()
@@ -710,10 +725,9 @@ class ConferenceApi(remote.Service):
             filter(Session.speaker == session.speaker)
         if spkrSessions.count() > 1:
             memcacheKey, message = self._getMemcacheData(conf, spkrSessions)
-            taskqueue.add(params={'memcacheKey': MEMCACHE_SPEAKER_KEY,
+            taskqueue.add(params={'memcacheKey': memcacheKey,
                                   'message': message},
                           url='/tasks/set_featured_speaker')
-            # self._setSpeakerInMemcache(memcacheKey, message)
         return self._copySessionToForm(session)
 
 

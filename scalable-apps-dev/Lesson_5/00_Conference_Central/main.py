@@ -39,7 +39,7 @@ class SendConfirmationEmailHandler(webapp2.RequestHandler):
 
 
 class SetFeaturedSpeakerHandler(webapp2.RequestHandler):
-    def get(self):
+    def post(self):
         """Set featured speaker in memcache."""
         ConferenceApi._setSpeakerInMemcache(
             self.request.get('memcacheKey'),
