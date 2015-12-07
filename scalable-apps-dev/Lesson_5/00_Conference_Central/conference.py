@@ -47,6 +47,7 @@ from settings import WEB_CLIENT_ID
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
 MEMCACHE_ANNOUNCEMENTS_KEY = "RECENT_ANNOUNCEMENTS"
+MEMCACHE_SPEAKER_KEY = "FEATURED_SPEAKER"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -149,7 +150,10 @@ class ConferenceApi(remote.Service):
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
         user_id = getUserId(user)
-
+        # Ensure a profile gets created or conference retreival will fail.
+        profile = self._getProfileFromUser()
+        if not profile:
+            raise endpoints.ConflictException("Unable to create or retrieve profile.")
         if not request.name:
             raise endpoints.BadRequestException("Conference 'name' field required")
 
@@ -275,7 +279,7 @@ class ConferenceApi(remote.Service):
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
-        user_id =  getUserId(user)
+        user_id = getUserId(user)
         # create ancestor query for all key matches for this user
         confs = Conference.query(ancestor=ndb.Key(Profile, user_id))
         prof = ndb.Key(Profile, user_id).get()
@@ -306,7 +310,7 @@ class ConferenceApi(remote.Service):
             if filtr["field"] in ["duration"]:
                 filtr["value"] = int(filtr["value"])
             formatted_query = ndb.query.FilterNode(filtr["field"], filtr["operator"], filtr["value"])
-             q = q.filter(formatted_query)
+            q = q.filter(formatted_query)
         return q
 
 
@@ -461,7 +465,7 @@ class ConferenceApi(remote.Service):
     def _conferenceRegistration(self, request, reg=True):
         """Register or unregister user for selected conference."""
         retval = None
-        prof = self._getProfileFromUser() # get user Profile
+        prof = self._getProfileFromUser()  # get user Profile
 
         # check if conf exists given websafeConfKey
         # get conference; check that it exists
@@ -553,11 +557,18 @@ class ConferenceApi(remote.Service):
         return self._conferenceRegistration(request, reg=False)
 
 
+# - - - Featured Speaker - - - - - - - - - - - - - - - - - - - -
+    # @staticmethod
+    # def _cacheSpeaker():
+
+
+
+
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -
 
     @staticmethod
     def _cacheAnnouncement():
-        """Create Announcement & assighn to memcache; used by memcache cron
+        """Create Announcement & assign to memcache; used by memcache cron
         job & putAnnouncement().
         """
         confs = Conference.query(ndb.AND(
@@ -574,7 +585,7 @@ class ConferenceApi(remote.Service):
                        ', '.join(conf.name for conf in confs))
             memcache.set(MEMCACHE_ANNOUNCEMENTS_KEY, announcement)
         else:
-            # If there are no sald out conferences, delet the memcache
+            # If there are no sold out conferences, delete the memcache
             # announcements entry
             announcement = ""
             memcache.delete(MEMCACHE_ANNOUNCEMENTS_KEY)
@@ -616,12 +627,13 @@ class ConferenceApi(remote.Service):
 
     def _createSession(self, request):
         # preload necessary data items
+        wsck = request.websafeConferenceKey
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
         user_id = getUserId(user)
 
-        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        conf = ndb.Key(urlsafe=wsck).get()
         # check that conference exists
         if not conf:
             raise endpoints.NotFoundException(
@@ -635,14 +647,19 @@ class ConferenceApi(remote.Service):
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
 
-        if not request.speakers:
-            raise endpoints.BadRequestException("Session 'speakers' field required")
+        # Check that session names are unique to a conference
+        sameNameQuery = Session.query(ancestor=ndb.Key(urlsafe=wsck)).\
+            filter(Session.name != "TBA").\
+            filter(Session.name == request.name)
+        if sameNameQuery.count() > 0:
+            raise endpoints.BadRequestException(
+                "A session already exists with that name for this conference.")
 
         # generate Session Key based on conference key,
         # session id, and session name.
         c_key = ndb.Key(urlsafe=request.websafeConferenceKey)
         s_id = Session.allocate_ids(size=1, parent=c_key)[0]
-        s_key = ndb.Key(Session, request.name, parent=c_key)
+        s_key = ndb.Key(Session, s_id, parent=c_key)
 
         session = Session(key=s_key)
 
@@ -659,6 +676,14 @@ class ConferenceApi(remote.Service):
                 setattr(session, field.name, data)
 
         session.put()
+
+        # Check te see if the speaker of the sessions is doing any
+        # other sessions. If so make them a featured speaker in memcache
+        spkrSessions = Session.query(ancestor=ndb.Key(urlsafe=wsck)).\
+            filter(Session.speaker == session.speaker)
+        print spkrSessions
+        if spkrSessions.count() > 1:
+            print "setting memcache"
 
         return self._copySessionToForm(session)
 
@@ -719,7 +744,7 @@ class ConferenceApi(remote.Service):
             raise endpoints.UnauthorizedException('Authorization required')
 
         # Filter sessions on speaker name
-        sessions = Session.query().filter(Session.speakers == request.message)
+        sessions = Session.query().filter(Session.speaker == request.message)
         return SessionForms(
             sessions=[self._copySessionToForm(sesh) for sesh in sessions]
         )
@@ -753,7 +778,8 @@ class ConferenceApi(remote.Service):
 
         # Check that the session is in a conference the user is registered in
         if profile.conferenceKeysToAttend:
-            seshs = [Session.query(ancestor=ndb.Key(urlsafe=p_key)) for p_key in profile.conferenceKeysToAttend]
+            seshs = [Session.query(ancestor=ndb.Key(urlsafe=p_key))
+                     for p_key in profile.conferenceKeysToAttend]
             if not seshs:
                 raise endpoints.ForbiddenException(
                     "You are not attending the conference that this session is in.")
