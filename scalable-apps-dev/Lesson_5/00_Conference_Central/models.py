@@ -54,31 +54,31 @@ class BooleanMessage(messages.Message):
 
 class Conference(ndb.Model):
     """Conference -- Conference object"""
-    name            = ndb.StringProperty(required=True)
-    description     = ndb.StringProperty()
+    name = ndb.StringProperty(required=True)
+    description = ndb.StringProperty()
     organizerUserId = ndb.StringProperty()
-    topics          = ndb.StringProperty(repeated=True)
-    city            = ndb.StringProperty()
-    startDate       = ndb.DateProperty()
-    month           = ndb.IntegerProperty() # TODO: do we need for indexing like Java?
-    endDate         = ndb.DateProperty()
-    maxAttendees    = ndb.IntegerProperty()
-    seatsAvailable  = ndb.IntegerProperty()
+    topics = ndb.StringProperty(repeated=True)
+    city = ndb.StringProperty()
+    startDate = ndb.DateProperty()
+    month = ndb.IntegerProperty()  # TODO: do we need for indexing like Java?
+    endDate = ndb.DateProperty()
+    maxAttendees = ndb.IntegerProperty()
+    seatsAvailable = ndb.IntegerProperty()
 
 
 class ConferenceForm(messages.Message):
     """ConferenceForm -- Conference outbound form message"""
-    name            = messages.StringField(1)
-    description     = messages.StringField(2)
+    name = messages.StringField(1)
+    description = messages.StringField(2)
     organizerUserId = messages.StringField(3)
-    topics          = messages.StringField(4, repeated=True)
-    city            = messages.StringField(5)
-    startDate       = messages.StringField(6)  #DateTimeField()
-    month           = messages.IntegerField(7)
-    maxAttendees    = messages.IntegerField(8)
-    seatsAvailable  = messages.IntegerField(9)
-    endDate         = messages.StringField(10)  #DateTimeField()
-    websafeKey      = messages.StringField(11)
+    topics = messages.StringField(4, repeated=True)
+    city = messages.StringField(5)
+    startDate = messages.StringField(6)  # DateTimeField()
+    month = messages.IntegerField(7)
+    maxAttendees = messages.IntegerField(8)
+    seatsAvailable = messages.IntegerField(9)
+    endDate = messages.StringField(10)  # DateTimeField()
+    websafeKey = messages.StringField(11)
     organizerDisplayName = messages.StringField(12)
 
 
@@ -133,25 +133,25 @@ class TypeOfSession(messages.Enum):
 
 class Session(ndb.Model):
     """Session -- Session object"""
-    name            = ndb.StringProperty(required=True)
-    highlights      = ndb.StringProperty()
-    speaker         = ndb.StringProperty(default="TBA")
-    duration        = ndb.IntegerProperty(default=60)
-    typeOfSession   = ndb.StringProperty(default='NOT_SPECIFIED')
-    date            = ndb.DateProperty()
-    startTime       = ndb.TimeProperty()
+    name = ndb.StringProperty(required=True)
+    highlights = ndb.StringProperty()
+    speaker = ndb.StringProperty(default="TBA")
+    duration = ndb.IntegerProperty(default=60)
+    typeOfSession = ndb.StringProperty(default='NOT_SPECIFIED')
+    date = ndb.DateProperty()
+    startTime = ndb.TimeProperty()
 
 
 class SessionForm(messages.Message):
     """SessionForm -- Session form messaging."""
-    name            = messages.StringField(1, required=True)
-    highlights      = messages.StringField(2)
-    speaker        = messages.StringField(3)
-    duration        = messages.IntegerField(4)
-    typeOfSession   = messages.EnumField('TypeOfSession', 5)
-    date            = messages.StringField(6)
-    startTime       = messages.StringField(7)
-    websafeKey      = messages.StringField(8)
+    name = messages.StringField(1, required=True)
+    highlights = messages.StringField(2)
+    speaker = messages.StringField(3)
+    duration = messages.IntegerField(4)
+    typeOfSession = messages.EnumField('TypeOfSession', 5)
+    date = messages.StringField(6)
+    startTime = messages.StringField(7)
+    websafeKey = messages.StringField(8)
 
 
 class SessionForms(messages.Message):
