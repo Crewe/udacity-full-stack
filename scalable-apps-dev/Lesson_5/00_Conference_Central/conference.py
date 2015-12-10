@@ -47,7 +47,7 @@ from settings import WEB_CLIENT_ID
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
 MEMCACHE_ANNOUNCEMENTS_KEY = "RECENT_ANNOUNCEMENTS"
-MEMCACHE_SPEAKER_KEY = "FEATURED_SPEAKER"
+MEMCACHE_SPEAKER_KEY = "_FEATURED_SPEAKER"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -105,7 +105,6 @@ SESS_WISH_POST_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeSessionKey=messages.StringField(1)
 )
-
 
 SESS_FILTER_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
@@ -572,7 +571,7 @@ class ConferenceApi(remote.Service):
         sessionNames = sessionNames.replace(" ,", " dna ,", 1)
         sessionNames = sessionNames[::-1]
         speakingAt = "{0} is speaking at: {1}".format(session.speaker, sessionNames)
-        memcacheKey = conference.name.replace(" ", "_").upper() + "_" 
+        memcacheKey = conference.name.replace(" ", "_").upper()
         memcacheKey += MEMCACHE_SPEAKER_KEY
         return memcacheKey, speakingAt
 
@@ -598,7 +597,7 @@ class ConferenceApi(remote.Service):
         conf = ndb.Key(urlsafe=wsck).get()
         if not conf:
             raise endpoints.NotFoundException("No conference found with that key.")
-        confNameKey = conf.name.upper().replace(" ", "_") + "_"
+        confNameKey = conf.name.upper().replace(" ", "_")
         keySpeaker = memcache.get(confNameKey + MEMCACHE_SPEAKER_KEY)
         if not keySpeaker:
             keySpeaker = ""
@@ -758,18 +757,16 @@ class ConferenceApi(remote.Service):
     @endpoints.method(SESS_TYPE_GET_REQUEST, SessionForms,
                       path='session/type/{websafeConferenceKey}',
                       http_method='GET',
-                      name='getConferenceSessionsByType')
-    def getConferenceSessionsByType(self, request):
+                      name='getSessionsByType')
+    def getSessionsByType(self, request):
         """Return sessions in a conference of a certain type."""
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
-
-        # Filter sessions on their key and the type of session
+        # Filter sessions on their conference key and the type of session
         sessions = Session.query(
             ancestor=ndb.Key(urlsafe=request.websafeConferenceKey)
         ).filter(Session.typeOfSession == request.typeOfSession)
-
         return SessionForms(
             sessions=[self._copySessionToForm(sesh) for sesh in sessions]
         )
@@ -784,7 +781,6 @@ class ConferenceApi(remote.Service):
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
-
         # Filter sessions on speaker name
         sessions = Session.query().filter(Session.speaker == request.message)
         return SessionForms(
@@ -939,7 +935,8 @@ class ConferenceApi(remote.Service):
                     op = OPERATORS[typeToRemove.operator]
                     op = typeToRemove.operator
                 except KeyError:
-                    raise endpoints.BadRequestException("Filter contains invalid field or operator.")
+                    raise endpoints.BadRequestException(
+                        "Filter contains invalid field or operator.")
 
                 filter_time = datetime.strptime(typeToRemove.value, "%H:%M:%S").time()
 
