@@ -26,10 +26,6 @@ body {
     overflow: hidden;
 }
 
-.caption h4 {
-    /* white-space: nowrap; */
-}
-
 .thumbnail img {
     width: 100%;
 }
@@ -54,7 +50,7 @@ footer {
 }
 
 .bottomless {
-    margin-bottom: 0px;
+    margin-bottom: 0;
 }
 
 .truncate {

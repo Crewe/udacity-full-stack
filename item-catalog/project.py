@@ -51,7 +51,7 @@ def catalogRSS():
     """
 
     rss = generateRSS()
-    #with open("rss.xml", "r") as rss_file:
+    # with open("rss.xml", "r") as rss_file:
     #    rss_feed = rss_file.read()
     response = make_response(rss.to_xml(), 200)
     response.headers['Content-Type'] = 'application/rss+xml'
@@ -70,7 +70,8 @@ def catalogJSON():
     response = make_response(json.dumps(data, sort_keys=True, indent=2), 200)
     response.headers['Content-Type'] = 'application/json'
     return response
-    return jsonify(Categories=[c.serialize for c in categories])
+    # If you just want to serialize the raw data
+    # return jsonify(Categories=[c.serialize for c in categories])
 
 
 @app.route('/catalog/items.json')
@@ -230,8 +231,8 @@ def showCatalog():
     items = getAllItems()
     # Reverse the list so the most recent items are at the front
     items = items[::-1]
-    return render_template('index.html', 
-                           categories=categories, 
+    return render_template('index.html',
+                           categories=categories,
                            recent_items=items[:6])
 
 
@@ -246,7 +247,7 @@ def showCategory(cat_name):
     categories = getCategories()
     return render_template('category.html',
                            categories=categories,
-                           category=cat_name, 
+                           category=cat_name,
                            items=items)
 
 
@@ -277,7 +278,7 @@ def addItem(cat_name):
             else:
                 picture_url = 'http://placehold.it/173x195'
             if request.form['item-thumb']:
-                thumbnail_url = request.form['item-thumb'] 
+                thumbnail_url = request.form['item-thumb']
             else:
                 thumbnail_url = 'http://placehold.it/320x150'
 
@@ -292,7 +293,7 @@ def addItem(cat_name):
             session.commit()
             # Update the RSS Feed: SEE catalogRSS()
             #generateRSS()
-            flash("Successfully added {0} to {1}!".format(newItem.name, 
+            flash("Successfully added {0} to {1}!".format(newItem.name,
                                                           category.name))
             return redirect(url_for('showCategory', cat_name=category.name))
         except:
@@ -300,8 +301,8 @@ def addItem(cat_name):
                   format(category.name), 'error')
             return redirect(url_for('showCategory', cat_name=category.name))
     else:
-        return render_template('additem.html', 
-                               category=category, 
+        return render_template('additem.html',
+                               category=category,
                                categories=categories)
 
 
@@ -330,12 +331,12 @@ def editItem(cat_name, item_name):
         session.add(itemToEdit)
         session.commit()
         flash('{0} was successfully updated.'.format(itemToEdit.name))
-        return redirect(url_for('showCategory', 
+        return redirect(url_for('showCategory',
                         cat_name=itemToEdit.category.name))
     else:
         categories = getCategories()
-        return render_template('edititem.html', 
-                               item=itemToEdit, 
+        return render_template('edititem.html',
+                               item=itemToEdit,
                                categories=categories)
 
 
@@ -417,8 +418,8 @@ def getItem(item_name):
 
 
 def createUser(login_session):
-    newUser = User(name=login_session['username'], 
-                   email=login_session['email'], 
+    newUser = User(name=login_session['username'],
+                   email=login_session['email'],
                    picture=login_session['picture'])
     session.add(newUser)
     session.commit()
@@ -451,12 +452,12 @@ def generateRSS():
         rss_items.append(ri)
 
     rss = PyRSS2Gen.RSS2(
-    title = "Item Imporium's RSS Feed",
-    link = "{0}/catalog".format(HOST),
-    description = "The latest items from the Item Imporium ",
-    lastBuildDate = datetime.datetime.utcnow(),
-    items = rss_items)
-    #rss.write_xml(open("rss.xml", "w"))
+        title="Item Imporium's RSS Feed",
+        link="{0}/catalog".format(HOST),
+        description="The latest items from the Item Imporium ",
+        lastBuildDate=datetime.datetime.utcnow(),
+        items=rss_items)
+    # rss.write_xml(open("rss.xml", "w"))
     return rss
 
 
