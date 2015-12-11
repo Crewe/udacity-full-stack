@@ -45,6 +45,9 @@ the downside is that if the speaker name needed correcting, then you would have
 to fix every sessions individually which could be quite cumbersome, as there's
 no guaruntee that they were all mispelled the same way.
 
+Also, sessions may only be added to a wishlist if the user is attending the 
+conference it's in. And if you unregister from the conference the sessions 
+associated with that conference will also be removed from the wishlist.
 
 ## Task 3
 **Think about other types of queries that would be useful for this application.
@@ -68,6 +71,35 @@ that are of a particular type: `WORKSHOP`, `LECTURE`, `KEYNOTE`, or
 `NOT_SPECIFIED` for a given conference key.  If the type is not found, nothing
 is returned.
 
+##### Valid Query Operators
+
+|Operator | Equivalent
+----------|-----------
+`EQ` | `=`
+`GT` | `>`
+`GTEQ` | `>=`
+`LT`| `<`
+`LTEQ` | `<=`
+`NE` | `!=`
+
+##### Valid Field Properties For Confernce Queries
+|Field | Kind.Property
+-------|--------------
+`CITY` | `Conference.city`
+`TOPIC` | `Conference.topics`
+`MONTH` | `Conference.month`
+`MAX_ATTENDEES` | `Conference.maxAttendees`
+`DURATION` | `Conference.duration`
+
+##### Valid Field Properties For Session Queries
+|Field | Kind.Property
+-------|--------------
+`SESS_START_TIME` | `Session.startTime`
+`TYPE_OF_SESSION` | `Session.typeOfSession`
+
+##### Valid Session Types:
+`WORKSHOP`, `LECTURE`, `KEYNOTE`, and `NOT_SPECIFIED` is the default for 
+sessions when not specified at creation.
 
 #### Solve the following query related problem:
 
