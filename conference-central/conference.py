@@ -939,26 +939,29 @@ class ConferenceApi(remote.Service):
                     raise endpoints.BadRequestException(
                         "Filter contains invalid field or operator.")
 
-                filter_time = datetime.strptime(typeToRemove.value, "%H:%M:%S").time()
-
-                if op == "EQ":
-                    if sesh.startTime == filter_time:
-                        fltrd_sess.append(sesh)
-                elif op == "GT":
-                    if sesh.startTime > filter_time:
-                        fltrd_sess.append(sesh)
-                elif op == 'GTEQ':
-                    if sesh.startTime >= filter_time:
-                        fltrd_sess.append(sesh)
-                elif op == 'LT':
-                    if sesh.startTime < filter_time:
-                        fltrd_sess.append(sesh)
-                elif op == 'LTEQ':
-                    if sesh.startTime <= filter_time:
-                        fltrd_sess.append(sesh)
-                elif op == 'NE':
-                    if sesh.startTime != filter_time:
-                        fltrd_sess.append(sesh)
+                if sesh.startTime:
+                    try:
+                        filter_time = datetime.strptime(typeToRemove.value, "%H:%M:%S").time()
+                    except:
+                        raise endpoints.BadRequestException("Incorrect time format. Expecting: HH:MM:SS")
+                    if op == "EQ":
+                        if sesh.startTime == filter_time:
+                            fltrd_sess.append(sesh)
+                    elif op == "GT":
+                        if sesh.startTime > filter_time:
+                            fltrd_sess.append(sesh)
+                    elif op == 'GTEQ':
+                        if sesh.startTime >= filter_time:
+                            fltrd_sess.append(sesh)
+                    elif op == 'LT':
+                        if sesh.startTime < filter_time:
+                            fltrd_sess.append(sesh)
+                    elif op == 'LTEQ':
+                        if sesh.startTime <= filter_time:
+                            fltrd_sess.append(sesh)
+                    elif op == 'NE':
+                        if sesh.startTime != filter_time:
+                            fltrd_sess.append(sesh)
 
             # Return time filtered sessions
             return SessionForms(
